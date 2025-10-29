@@ -1,0 +1,5 @@
+.venv
+blocweather.egg-info
+.cache.sqlite
+.idea
+data
