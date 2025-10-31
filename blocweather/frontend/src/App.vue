@@ -1,26 +1,24 @@
 <template>
-  <img alt="Vue logo" src="./assets/logo.png">
-  <HelloWorld msg="Welcome to Your Vue.js App"/>
+  <div style="max-width:9000px;margin:28px auto;font-family:system-ui,Segoe UI,Roboto,Arial">
+    <h1>Hohenfels</h1>
+    <div style="width: 1000px" id="chart">
+      <Chart />
+    </div>
+  </div>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue'
+import Chart from './components/Chart.vue'
 
 export default {
-  name: 'App',
+  name: 'chart',
   components: {
-    HelloWorld
-  }
+    Chart
+  },
 }
+
 </script>
 
 <style>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
-}
+/* no canvas styles needed for ApexCharts component */
 </style>

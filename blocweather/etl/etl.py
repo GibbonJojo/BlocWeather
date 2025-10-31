@@ -8,11 +8,23 @@ from retry_requests import retry
 
 from blocweather.settings import settings
 
+PARAMETERS = {
+    "temperature_2m": "temperature",
+    "relative_humidity_2m": "humidity",
+    "dew_point_2m": "dewpoint_temperature",
+    "precipitation": "precipitation",
+    "cloud_cover": "cloud_cover",
+    # "et0_fao_evapotranspiration": "evapotranspiration",
+    "wind_speed_10m": "wind_speed",
+    "wind_direction_10m": "wind_dir",
+    "is_day": "is_day",
+    "sunshine_duration": "sunshine_duration",
+    "shortwave_radiation_instant": "shortwave_radiation_instant",
+}
 
 def _open_meteo_etl(
     openmeteo,
     request_params: dict,
-    parameters: list,
     url: str,
     start: datetime | None,
     end: datetime | None,
@@ -40,7 +52,7 @@ def _open_meteo_etl(
         data = pl.DataFrame(
             {
                 param: hourly.Variables(i).ValuesAsNumpy()
-                for i, param in enumerate(parameters)
+                for i, param in enumerate(PARAMETERS.values())
             }
         ).with_columns(
             pl.datetime_range(
@@ -66,24 +78,11 @@ def open_meteo_etl(start: datetime, to_obs: timedelta, to_fcst: timedelta):
 
     # Make sure all required weather variables are listed here
     # The order of variables in hourly or daily is important to assign them correctly below
-    parameters = [
-        "temperature_2m",
-        "relative_humidity_2m",
-        "dew_point_2m",
-        "precipitation",
-        "cloud_cover",
-        "et0_fao_evapotranspiration",
-        "wind_speed_10m",
-        "wind_direction_10m",
-        "is_day",
-        "sunshine_duration",
-        "shortwave_radiation_instant",
-    ]
 
     request_params = {
         "latitude": latitudes,
         "longitude": longitudes,
-        "hourly": parameters,
+        "hourly": list(PARAMETERS.keys()),
         "timezone": "GMT",
         "wind_speed_unit": "ms",
     }
@@ -91,7 +90,6 @@ def open_meteo_etl(start: datetime, to_obs: timedelta, to_fcst: timedelta):
     obs_data = _open_meteo_etl(
         openmeteo,
         request_params,
-        parameters,
         "https://archive-api.open-meteo.com/v1/archive",
         start - to_obs,
         start,
@@ -100,7 +98,6 @@ def open_meteo_etl(start: datetime, to_obs: timedelta, to_fcst: timedelta):
     fcst_data = _open_meteo_etl(
         openmeteo,
         request_params,
-        parameters,
         "https://api.open-meteo.com/v1/forecast",
         None,
         None,
