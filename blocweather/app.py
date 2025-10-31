@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from blocweather.settings import settings
 from pathlib import Path
 import polars as pl
+import os
 
 
 # If you build the frontend and copy dist into backend/frontend_dist,
