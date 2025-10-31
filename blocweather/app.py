@@ -5,7 +5,10 @@ from blocweather.settings import settings
 from pathlib import Path
 import polars as pl
 import os
+import logging
 
+logging.basicConfig(level=logging.INFO, filename='app.log',
+                    format='%(asctime)s %(levelname)s:%(message)s')
 
 # If you build the frontend and copy dist into backend/frontend_dist,
 # Flask will serve it as static files.
@@ -24,13 +27,14 @@ def index():
 
 @app.route('/api/timeseries/<location>/<parameter>')
 def timeseries(location: str, parameter: str, days_obs: int = 5, days_fcst: int = 3):
-
+    logging.info(f"Received request for location: {location}, parameter: {parameter}")
     data_file = Path(settings.data_path) / "locations" / f"{location}.parquet"
     if not data_file.is_file():
         return "ERROR"
     now = datetime.now(tz=timezone.utc)
     start = now - timedelta(days=days_obs)
     end = now + timedelta(days=days_fcst)
+    logging.info(f"Fetching data from {start} to {end}")
     data = (
         pl.scan_parquet(data_file).select(["timestamp", parameter])
         .with_columns(pl.col("timestamp").dt.replace_time_zone("UTC"))
@@ -40,8 +44,9 @@ def timeseries(location: str, parameter: str, days_obs: int = 5, days_fcst: int 
         .collect()
         .to_dicts()
     )
+    logging.info(f"Retrieved {len(data)} data points")
 
-    data = [{"x": d["x"], "y": round(d["y"], 1)} for d in data]
+    # data = [{"x": d["x"], "y": round(d["y"], 1)} for d in data]
     return jsonify(data)
 
 

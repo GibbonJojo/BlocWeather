@@ -98,6 +98,11 @@ export default {
                         show: false,
                         min: 0,
                         max: 100,
+                        labels: {
+                            formatter: function (value) {
+                                return value.toFixed(0) + "%";
+                            }
+                        }
                     }
                 ],
                 series: [{},{}],
