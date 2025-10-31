@@ -9,7 +9,7 @@ import os
 
 # If you build the frontend and copy dist into backend/frontend_dist,
 # Flask will serve it as static files.
-FRONTEND_DIST = os.path.join(os.path.dirname(__file__), 'frontend_dist')
+FRONTEND_DIST = os.path.join(os.path.dirname(__file__), 'frontend/dist')
 
 
 app = Flask(__name__, static_folder = FRONTEND_DIST, template_folder = FRONTEND_DIST, static_url_path='')
