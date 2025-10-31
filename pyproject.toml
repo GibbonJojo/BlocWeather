@@ -14,7 +14,9 @@ dependencies = [
     "retry-requests",
     "numpy",
     "Flask",
-    "Flask-Cors"
+    "Flask-Cors",
+    "pyarrow",
+    "pandas",
 ]
 requires-python = ">=3.12"
 authors = [

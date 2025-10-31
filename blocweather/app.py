@@ -6,6 +6,7 @@ from pathlib import Path
 import polars as pl
 import os
 import logging
+import pandas as pd
 
 logging.basicConfig(level=logging.INFO, filename='app.log',
                     format='%(asctime)s %(levelname)s:%(message)s')
@@ -35,18 +36,26 @@ def timeseries(location: str, parameter: str, days_obs: int = 5, days_fcst: int 
     start = now - timedelta(days=days_obs)
     end = now + timedelta(days=days_fcst)
     logging.info(f"Fetching data from {start} to {end}")
-    data = (
-        pl.scan_parquet(data_file).select(["timestamp", parameter])
-        .with_columns(pl.col("timestamp").dt.replace_time_zone("UTC"))
-        .filter((pl.col("timestamp") > start) & (pl.col("timestamp") < end))
-        .with_columns(pl.col("timestamp").dt.replace_time_zone(None))
-        .rename({"timestamp": "x", parameter: "y"})
-    )
-    logging.info("Collecting Data")
+    # Polars version:
+    # data = (
+    #     pl.scan_parquet(data_file).select(["timestamp", parameter])
+    #     .with_columns(pl.col("timestamp").dt.replace_time_zone("UTC"))
+    #     .filter((pl.col("timestamp") > start) & (pl.col("timestamp") < end))
+    #     .with_columns(pl.col("timestamp").dt.replace_time_zone(None))
+    #     .rename({"timestamp": "x", parameter: "y"})
+    # )
+    # data = data.collect()
+    # data = data.to_dicts()
 
-    data = data.collect()
+    # Pandas version:
+    data = pd.read_parquet(data_file)
+    data = data[["timestamp", parameter]]
+    data["timestamp"] = data["timestamp"].dt.tz_localize("UTC")
+    data = data[(data["timestamp"] > start) & (data["timestamp"] < end)]
+    data["timestamp"] = data["timestamp"].dt.tz_localize(None)
+    data = data.rename(columns={"timestamp": "x", parameter: "y"})
     logging.info("Converting Data")
-    data = data.to_dicts()
+    data = data.to_dict('records')
     logging.info(f"Retrieved {len(data)} data points")
 
     # data = [{"x": d["x"], "y": round(d["y"], 1)} for d in data]
