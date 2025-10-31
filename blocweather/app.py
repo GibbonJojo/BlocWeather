@@ -41,9 +41,12 @@ def timeseries(location: str, parameter: str, days_obs: int = 5, days_fcst: int 
         .filter((pl.col("timestamp") > start) & (pl.col("timestamp") < end))
         .with_columns(pl.col("timestamp").dt.replace_time_zone(None))
         .rename({"timestamp": "x", parameter: "y"})
-        .collect()
-        .to_dicts()
     )
+    logging.info("Collecting Data")
+
+    data = data.collect()
+    logging.info("Converting Data")
+    data = data.to_dicts()
     logging.info(f"Retrieved {len(data)} data points")
 
     # data = [{"x": d["x"], "y": round(d["y"], 1)} for d in data]
