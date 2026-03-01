@@ -4,7 +4,7 @@ use argon2::{
     password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
     Argon2,
 };
-use sqlx::postgres::PgPoolOptions;
+use sqlx::{postgres::PgPoolOptions, Row};
 
 #[tokio::main]
 async fn main() {
@@ -35,20 +35,22 @@ async fn main() {
         .expect("Failed to connect to database");
 
     // Insert user
-    let row = sqlx::query!(
+    let row = sqlx::query(
         r#"
         INSERT INTO admin_users (username, password_hash, email)
         VALUES ($1, $2, $3)
         ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash
         RETURNING id, username
-        "#,
-        username,
-        hash,
-        format!("{}@blocweather.local", username),
+        "#
     )
+    .bind(username)
+    .bind(&hash)
+    .bind(format!("{}@blocweather.local", username))
     .fetch_one(&pool)
     .await
     .expect("Failed to insert admin user");
 
-    println!("✓ Admin user created: {} ({})", row.username, row.id);
+    let id: uuid::Uuid = row.get("id");
+    let username: String = row.get("username");
+    println!("✓ Admin user created: {} ({})", username, id);
 }

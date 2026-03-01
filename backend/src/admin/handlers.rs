@@ -60,7 +60,7 @@ pub struct UpdateSpotRequest {
     pub exposure: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, sqlx::FromRow)]
 pub struct SpotResponse {
     pub id: Uuid,
     pub name: String,
@@ -133,7 +133,7 @@ pub async fn update_spot_handler(
 ) -> Result<Json<SpotResponse>, (StatusCode, String)> {
     let db = &state.db;
 
-    let existing = sqlx::query!(
+    let existing = sqlx::query_as::<_, SpotResponse>(
         r#"
         SELECT id, name, latitude, longitude, country_id, subregion_id,
                description, elevation_meters,
@@ -141,9 +141,9 @@ pub async fn update_spot_handler(
                exposure::text as exposure
         FROM spots
         WHERE id = $1
-        "#,
-        spot_id
+        "#
     )
+    .bind(spot_id)
     .fetch_optional(db)
     .await
     .map_err(|e| {
@@ -214,16 +214,14 @@ pub async fn delete_spot_handler(
     Path(spot_id): Path<Uuid>,
 ) -> Result<StatusCode, (StatusCode, String)> {
     let db = &state.db;
-    let result = sqlx::query!(
-        "DELETE FROM spots WHERE id = $1",
-        spot_id
-    )
-    .execute(db)
-    .await
-    .map_err(|e| {
-        tracing::error!("Database error: {:?}", e);
-        (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
-    })?;
+    let result = sqlx::query("DELETE FROM spots WHERE id = $1")
+        .bind(spot_id)
+        .execute(db)
+        .await
+        .map_err(|e| {
+            tracing::error!("Database error: {:?}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
+        })?;
 
     if result.rows_affected() == 0 {
         return Err((StatusCode::NOT_FOUND, "Spot not found".to_string()));
@@ -290,7 +288,7 @@ pub struct UpdateCountryRequest {
     pub code: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, sqlx::FromRow)]
 pub struct CountryResponse {
     pub id: Uuid,
     pub name: String,
@@ -302,15 +300,11 @@ pub async fn create_country_handler(
     Json(req): Json<CreateCountryRequest>,
 ) -> Result<Json<CountryResponse>, (StatusCode, String)> {
     let db = &state.db;
-    let country = sqlx::query!(
-        r#"
-        INSERT INTO countries (name, code)
-        VALUES ($1, $2)
-        RETURNING id, name, code
-        "#,
-        req.name,
-        req.code
+    let country = sqlx::query_as::<_, CountryResponse>(
+        "INSERT INTO countries (name, code) VALUES ($1, $2) RETURNING id, name, code"
     )
+    .bind(&req.name)
+    .bind(&req.code)
     .fetch_one(db)
     .await
     .map_err(|e| {
@@ -318,11 +312,7 @@ pub async fn create_country_handler(
         (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
     })?;
 
-    Ok(Json(CountryResponse {
-        id: country.id,
-        name: country.name,
-        code: country.code,
-    }))
+    Ok(Json(country))
 }
 
 pub async fn update_country_handler(
@@ -332,10 +322,10 @@ pub async fn update_country_handler(
 ) -> Result<Json<CountryResponse>, (StatusCode, String)> {
     let db = &state.db;
 
-    let existing = sqlx::query!(
-        "SELECT id, name, code FROM countries WHERE id = $1",
-        country_id
+    let existing = sqlx::query_as::<_, CountryResponse>(
+        "SELECT id, name, code FROM countries WHERE id = $1"
     )
+    .bind(country_id)
     .fetch_optional(db)
     .await
     .map_err(|e| {
@@ -347,10 +337,12 @@ pub async fn update_country_handler(
     let name = req.name.unwrap_or(existing.name);
     let code = req.code.unwrap_or(existing.code);
 
-    let row = sqlx::query!(
-        "UPDATE countries SET name = $1, code = $2 WHERE id = $3 RETURNING id, name, code",
-        name, code, country_id
+    let row = sqlx::query_as::<_, CountryResponse>(
+        "UPDATE countries SET name = $1, code = $2 WHERE id = $3 RETURNING id, name, code"
     )
+    .bind(&name)
+    .bind(&code)
+    .bind(country_id)
     .fetch_one(db)
     .await
     .map_err(|e| {
@@ -358,7 +350,7 @@ pub async fn update_country_handler(
         (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
     })?;
 
-    Ok(Json(CountryResponse { id: row.id, name: row.name, code: row.code }))
+    Ok(Json(row))
 }
 
 pub async fn delete_country_handler(
@@ -366,16 +358,14 @@ pub async fn delete_country_handler(
     Path(country_id): Path<Uuid>,
 ) -> Result<StatusCode, (StatusCode, String)> {
     let db = &state.db;
-    let result = sqlx::query!(
-        "DELETE FROM countries WHERE id = $1",
-        country_id
-    )
-    .execute(db)
-    .await
-    .map_err(|e| {
-        tracing::error!("Database error: {:?}", e);
-        (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
-    })?;
+    let result = sqlx::query("DELETE FROM countries WHERE id = $1")
+        .bind(country_id)
+        .execute(db)
+        .await
+        .map_err(|e| {
+            tracing::error!("Database error: {:?}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
+        })?;
 
     if result.rows_affected() == 0 {
         return Err((StatusCode::NOT_FOUND, "Country not found".to_string()));
@@ -397,7 +387,7 @@ pub struct UpdateSubregionRequest {
     pub name: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, sqlx::FromRow)]
 pub struct SubregionResponse {
     pub id: Uuid,
     pub name: String,
@@ -409,15 +399,11 @@ pub async fn create_subregion_handler(
     Json(req): Json<CreateSubregionRequest>,
 ) -> Result<Json<SubregionResponse>, (StatusCode, String)> {
     let db = &state.db;
-    let subregion = sqlx::query!(
-        r#"
-        INSERT INTO subregions (name, country_id)
-        VALUES ($1, $2)
-        RETURNING id, name, country_id
-        "#,
-        req.name,
-        req.country_id
+    let subregion = sqlx::query_as::<_, SubregionResponse>(
+        "INSERT INTO subregions (name, country_id) VALUES ($1, $2) RETURNING id, name, country_id"
     )
+    .bind(&req.name)
+    .bind(req.country_id)
     .fetch_one(db)
     .await
     .map_err(|e| {
@@ -425,11 +411,7 @@ pub async fn create_subregion_handler(
         (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
     })?;
 
-    Ok(Json(SubregionResponse {
-        id: subregion.id,
-        name: subregion.name,
-        country_id: subregion.country_id,
-    }))
+    Ok(Json(subregion))
 }
 
 pub async fn update_subregion_handler(
@@ -439,10 +421,10 @@ pub async fn update_subregion_handler(
 ) -> Result<Json<SubregionResponse>, (StatusCode, String)> {
     let db = &state.db;
 
-    let existing = sqlx::query!(
-        "SELECT id, name, country_id FROM subregions WHERE id = $1",
-        subregion_id
+    let existing = sqlx::query_as::<_, SubregionResponse>(
+        "SELECT id, name, country_id FROM subregions WHERE id = $1"
     )
+    .bind(subregion_id)
     .fetch_optional(db)
     .await
     .map_err(|e| {
@@ -453,10 +435,11 @@ pub async fn update_subregion_handler(
 
     let name = req.name.unwrap_or(existing.name);
 
-    let row = sqlx::query!(
-        "UPDATE subregions SET name = $1 WHERE id = $2 RETURNING id, name, country_id",
-        name, subregion_id
+    let row = sqlx::query_as::<_, SubregionResponse>(
+        "UPDATE subregions SET name = $1 WHERE id = $2 RETURNING id, name, country_id"
     )
+    .bind(&name)
+    .bind(subregion_id)
     .fetch_one(db)
     .await
     .map_err(|e| {
@@ -464,7 +447,7 @@ pub async fn update_subregion_handler(
         (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
     })?;
 
-    Ok(Json(SubregionResponse { id: row.id, name: row.name, country_id: row.country_id }))
+    Ok(Json(row))
 }
 
 pub async fn delete_subregion_handler(
@@ -472,16 +455,14 @@ pub async fn delete_subregion_handler(
     Path(subregion_id): Path<Uuid>,
 ) -> Result<StatusCode, (StatusCode, String)> {
     let db = &state.db;
-    let result = sqlx::query!(
-        "DELETE FROM subregions WHERE id = $1",
-        subregion_id
-    )
-    .execute(db)
-    .await
-    .map_err(|e| {
-        tracing::error!("Database error: {:?}", e);
-        (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
-    })?;
+    let result = sqlx::query("DELETE FROM subregions WHERE id = $1")
+        .bind(subregion_id)
+        .execute(db)
+        .await
+        .map_err(|e| {
+            tracing::error!("Database error: {:?}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
+        })?;
 
     if result.rows_affected() == 0 {
         return Err((StatusCode::NOT_FOUND, "Subregion not found".to_string()));
@@ -573,16 +554,14 @@ pub async fn delete_report_handler(
     State(state): State<AppState>,
     Path(report_id): Path<Uuid>,
 ) -> Result<StatusCode, (StatusCode, String)> {
-    let result = sqlx::query!(
-        "DELETE FROM condition_reports WHERE id = $1",
-        report_id
-    )
-    .execute(&state.db)
-    .await
-    .map_err(|e| {
-        tracing::error!("Database error: {:?}", e);
-        (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
-    })?;
+    let result = sqlx::query("DELETE FROM condition_reports WHERE id = $1")
+        .bind(report_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            tracing::error!("Database error: {:?}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
+        })?;
 
     if result.rows_affected() == 0 {
         return Err((StatusCode::NOT_FOUND, "Report not found".to_string()));

@@ -54,6 +54,13 @@ pub fn validate_token(token: &str, secret: &str) -> Result<Claims, jsonwebtoken:
     Ok(token_data.claims)
 }
 
+#[derive(sqlx::FromRow)]
+struct AdminUserRow {
+    id: uuid::Uuid,
+    username: String,
+    password_hash: String,
+}
+
 /// Verify user credentials against database
 pub async fn verify_credentials(
     db: &PgPool,
@@ -61,14 +68,10 @@ pub async fn verify_credentials(
     password: &str,
 ) -> Result<(String, String), (StatusCode, String)> {
     // Fetch user from database
-    let user = sqlx::query!(
-        r#"
-        SELECT id, username, password_hash
-        FROM admin_users
-        WHERE username = $1
-        "#,
-        username
+    let user = sqlx::query_as::<_, AdminUserRow>(
+        "SELECT id, username, password_hash FROM admin_users WHERE username = $1"
     )
+    .bind(username)
     .fetch_optional(db)
     .await
     .map_err(|e| {
@@ -89,17 +92,11 @@ pub async fn verify_credentials(
     .map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid credentials".to_string()))?;
 
     // Update last login timestamp
-    sqlx::query!(
-        r#"
-        UPDATE admin_users
-        SET last_login_at = NOW()
-        WHERE id = $1
-        "#,
-        user.id
-    )
-    .execute(db)
-    .await
-    .ok(); // Ignore errors for last_login update
+    sqlx::query("UPDATE admin_users SET last_login_at = NOW() WHERE id = $1")
+        .bind(user.id)
+        .execute(db)
+        .await
+        .ok(); // Ignore errors for last_login update
 
     Ok((user.id.to_string(), user.username))
 }

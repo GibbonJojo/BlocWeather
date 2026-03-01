@@ -209,7 +209,7 @@ async fn store_weather_data(
     spot_id: Uuid,
     data: &crate::services::WeatherDataPoint,
 ) -> Result<(), sqlx::Error> {
-    sqlx::query!(
+    sqlx::query(
         r#"
         INSERT INTO weather_data (
             spot_id, timestamp, temperature_c, dewpoint_c, humidity_percent,
@@ -232,21 +232,21 @@ async fn store_weather_data(
             pressure_hpa = EXCLUDED.pressure_hpa,
             is_forecast = EXCLUDED.is_forecast,
             fetched_at = NOW()
-        "#,
-        spot_id,
-        data.timestamp,
-        data.temperature_c,
-        data.dewpoint_c,
-        data.humidity_percent,
-        data.precipitation_mm,
-        data.cloud_cover_percent,
-        data.wind_speed_kmh,
-        data.wind_direction_degrees,
-        data.solar_radiation_wm2,
-        data.sunshine_duration_s,
-        data.pressure_hpa,
-        data.is_forecast
+        "#
     )
+    .bind(spot_id)
+    .bind(data.timestamp)
+    .bind(data.temperature_c)
+    .bind(data.dewpoint_c)
+    .bind(data.humidity_percent)
+    .bind(data.precipitation_mm)
+    .bind(data.cloud_cover_percent)
+    .bind(data.wind_speed_kmh)
+    .bind(data.wind_direction_degrees)
+    .bind(data.solar_radiation_wm2)
+    .bind(data.sunshine_duration_s)
+    .bind(data.pressure_hpa)
+    .bind(data.is_forecast)
     .execute(db)
     .await?;
 
@@ -263,7 +263,7 @@ async fn store_climbing_conditions(
     min_saturation: f32,
     max_saturation: f32,
 ) -> Result<(), sqlx::Error> {
-    sqlx::query!(
+    sqlx::query(
         r#"
         INSERT INTO climbing_conditions (
             spot_id, timestamp, rock_surface_temp_min_c, rock_surface_temp_max_c,
@@ -277,14 +277,14 @@ async fn store_climbing_conditions(
             min_saturation = EXCLUDED.min_saturation,
             max_saturation = EXCLUDED.max_saturation,
             calculated_at = NOW()
-        "#,
-        spot_id,
-        timestamp,
-        rock_temp_min,
-        rock_temp_max,
-        min_saturation,
-        max_saturation,
+        "#
     )
+    .bind(spot_id)
+    .bind(timestamp)
+    .bind(rock_temp_min)
+    .bind(rock_temp_max)
+    .bind(min_saturation)
+    .bind(max_saturation)
     .execute(db)
     .await?;
 
