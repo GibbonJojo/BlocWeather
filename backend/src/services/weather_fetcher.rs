@@ -140,8 +140,13 @@ impl WeatherFetcher {
             return Err(anyhow::anyhow!("API error {}: {}", status, text));
         }
 
-        // When multiple coordinates are sent, Open-Meteo returns an array of responses
-        let api_responses: Vec<OpenMeteoResponse> = response.json().await?;
+        // Open-Meteo returns an array for multiple coordinates, a single object for one
+        let body = response.bytes().await?;
+        let api_responses: Vec<OpenMeteoResponse> = if body.first() == Some(&b'[') {
+            serde_json::from_slice(&body)?
+        } else {
+            vec![serde_json::from_slice(&body)?]
+        };
 
         // Parse responses into structured data
         self.parse_batch_responses(api_responses, coordinates, past_days, forecast_days)
