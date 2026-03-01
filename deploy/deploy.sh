@@ -21,7 +21,7 @@ cargo build --release
 echo "=== [3/4] Build frontend ==="
 cd "$REPO/frontend"
 npm ci
-PUBLIC_API_URL="http://$SERVER_IP/api/v1" npm run build
+PUBLIC_API_URL="/api/v1" npm run build
 
 echo "=== [4/4] Restart services ==="
 sudo systemctl restart blocweather-backend
