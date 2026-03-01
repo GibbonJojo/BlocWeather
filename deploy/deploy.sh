@@ -15,7 +15,8 @@ git pull
 echo "=== [2/4] Build backend ==="
 cd "$REPO/backend"
 source "$HOME/.cargo/env"
-SQLX_OFFLINE=true cargo build --release
+export DATABASE_URL=$(grep "^DATABASE_URL=" "$REPO/.env" | cut -d= -f2-)
+cargo build --release
 
 echo "=== [3/4] Build frontend ==="
 cd "$REPO/frontend"
