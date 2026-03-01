@@ -6,7 +6,7 @@
 ///
 /// Both values are in [0.0, 1.0] where 0 = completely dry, 1 = fully saturated.
 
-const BASE_RATE: f32 = 2.0;
+const BASE_RATE: f32 = 3.5;
 const CAP: f32 = 5.0;
 
 /// Fallback dewpoint estimate via Magnus formula, used only when Open-Meteo value is unavailable.
@@ -59,7 +59,7 @@ pub fn calculate_saturation_step(
     let rate_reducing_factor = 1.0 - smooth_x;
 
     let dp = dewpoint_c.unwrap();
-    let humidity_factor = 1.0 - humidity_percent as f32 / 100.0;
+    let humidity_factor = (1.0 - humidity_percent as f32 / 100.0).powf(0.5);
 
     // --- min_saturation: fast-drying (sunny rock) ---
     let spread_fast = rock_temp_max - dp;

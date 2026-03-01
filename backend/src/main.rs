@@ -110,6 +110,8 @@ async fn main() {
         .route("/subregions/:subregion_id", put(admin::update_subregion_handler).delete(admin::delete_subregion_handler))
         .route("/reports", get(admin::list_reports_handler))
         .route("/reports/:report_id", delete(admin::delete_report_handler))
+        .route("/suggestions", get(admin::list_suggestions_handler).delete(admin::delete_all_suggestions_handler))
+        .route("/suggestions/:suggestion_id", delete(admin::delete_suggestion_handler))
         .layer(middleware::from_fn(admin::auth_middleware));
 
     // Build public routes
@@ -125,6 +127,7 @@ async fn main() {
         .route("/api/v1/spots/map", get(get_map_spots_handler))
         .route("/api/v1/spots/:spot_id/reports", post(submit_report_handler))
         .route("/api/v1/search", get(search_handler))
+        .route("/api/v1/suggestions", post(admin::submit_suggestion_handler))
         .route("/api/v1/admin/login", post(admin::login_handler));
 
     // Combine routes

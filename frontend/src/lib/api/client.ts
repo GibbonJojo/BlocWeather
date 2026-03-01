@@ -104,6 +104,13 @@ export interface AdminSubregion {
 	spot_count: number;
 }
 
+export interface AreaSuggestion {
+	id: string;
+	name: string;
+	country: string;
+	created_at: string;
+}
+
 export interface AdminReport {
 	id: string;
 	spot_id: string;
@@ -321,6 +328,37 @@ class ApiClient {
 			headers: this.auth(token),
 		});
 	}
+
+	// Area suggestions (public)
+	async submitAreaSuggestion(name: string, country: string): Promise<void> {
+		return this.request('/suggestions', {
+			method: 'POST',
+			body: JSON.stringify({ name, country })
+		});
+	}
+
+	// Area suggestions (admin)
+	async adminListSuggestions(token: string): Promise<AreaSuggestion[]> {
+		return this.request('/admin/suggestions', { headers: this.auth(token) });
+	}
+
+	async adminDeleteSuggestion(token: string, id: string): Promise<void> {
+		return this.request(`/admin/suggestions/${id}`, {
+			method: 'DELETE',
+			headers: this.auth(token)
+		});
+	}
+
+	async adminDeleteAllSuggestions(token: string): Promise<void> {
+		return this.request('/admin/suggestions', {
+			method: 'DELETE',
+			headers: this.auth(token)
+		});
+	}
 }
 
 export const api = new ApiClient(API_BASE);
+
+export function rockWetnessLabel(): string {
+	return Math.random() < 0.0001 ? 'Cock wetness' : 'Rock wetness';
+}

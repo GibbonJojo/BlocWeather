@@ -17,12 +17,20 @@
 	let formName = '';
 	let formCountryId = '';
 
+	function sortRegions(list: AdminSubregion[]): AdminSubregion[] {
+		return [...list].sort((a, b) =>
+			a.country_name.localeCompare(b.country_name) || a.name.localeCompare(b.name)
+		);
+	}
+
 	onMount(async () => {
 		try {
-			[regions, countries] = await Promise.all([
+			const [r, c] = await Promise.all([
 				api.adminListSubregions(token),
 				api.getCountries(),
 			]);
+			regions = sortRegions(r);
+			countries = [...c].sort((a, b) => a.name.localeCompare(b.name));
 		} catch {
 			error = 'Failed to load data.';
 		} finally {
@@ -46,10 +54,10 @@
 		try {
 			if (editingId) {
 				await api.adminUpdateSubregion(token, editingId, { name: formName });
-				regions = regions.map(r => r.id === editingId ? { ...r, name: formName } : r);
+				regions = sortRegions(regions.map(r => r.id === editingId ? { ...r, name: formName } : r));
 			} else {
 				await api.adminCreateSubregion(token, { name: formName, country_id: formCountryId });
-				regions = await api.adminListSubregions(token);
+				regions = sortRegions(await api.adminListSubregions(token));
 			}
 			showForm = false; editingId = null;
 		} catch {

@@ -569,3 +569,100 @@ pub async fn delete_report_handler(
 
     Ok(StatusCode::NO_CONTENT)
 }
+
+// ==================== Area Suggestions ====================
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct AreaSuggestion {
+    pub id: Uuid,
+    pub name: String,
+    pub country: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Deserialize)]
+pub struct SubmitSuggestionRequest {
+    pub name: String,
+    pub country: String,
+}
+
+/// Public endpoint — submit an area suggestion (no auth required).
+/// ON CONFLICT DO NOTHING ensures duplicates are silently ignored.
+pub async fn submit_suggestion_handler(
+    State(state): State<AppState>,
+    Json(req): Json<SubmitSuggestionRequest>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let name = req.name.trim().to_string();
+    let country = req.country.trim().to_string();
+
+    if name.is_empty() || country.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "Name and country are required".to_string()));
+    }
+
+    sqlx::query(
+        "INSERT INTO area_suggestions (name, country) VALUES ($1, $2) ON CONFLICT DO NOTHING"
+    )
+    .bind(&name)
+    .bind(&country)
+    .execute(&state.db)
+    .await
+    .map_err(|e| {
+        tracing::error!("Database error: {:?}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
+    })?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Admin — list all area suggestions, newest first.
+pub async fn list_suggestions_handler(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<AreaSuggestion>>, (StatusCode, String)> {
+    let suggestions = sqlx::query_as::<_, AreaSuggestion>(
+        "SELECT id, name, country, created_at FROM area_suggestions ORDER BY created_at DESC"
+    )
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| {
+        tracing::error!("Database error: {:?}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
+    })?;
+
+    Ok(Json(suggestions))
+}
+
+/// Admin — delete a single area suggestion by ID.
+pub async fn delete_suggestion_handler(
+    State(state): State<AppState>,
+    Path(suggestion_id): Path<Uuid>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let result = sqlx::query("DELETE FROM area_suggestions WHERE id = $1")
+        .bind(suggestion_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            tracing::error!("Database error: {:?}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
+        })?;
+
+    if result.rows_affected() == 0 {
+        return Err((StatusCode::NOT_FOUND, "Suggestion not found".to_string()));
+    }
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Admin — delete all area suggestions.
+pub async fn delete_all_suggestions_handler(
+    State(state): State<AppState>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    sqlx::query("DELETE FROM area_suggestions")
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            tracing::error!("Database error: {:?}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
+        })?;
+
+    Ok(StatusCode::NO_CONTENT)
+}

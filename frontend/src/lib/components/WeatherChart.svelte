@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import type { WeatherData, ClimbingCondition } from '$lib/api/client';
+	import { rockWetnessLabel } from '$lib/api/client';
+
+	// Stable label for this chart instance (0.01% easter egg)
+	const rockWetness = rockWetnessLabel();
 
 	export let weather: WeatherData[];
 	export let conditions: ClimbingCondition[];
@@ -34,7 +38,7 @@
 		temperature:   'Air Temp',
 		humidity:      'Humidity',
 		precipitation: 'Rain',
-		saturation:    'Saturation',
+		saturation:    rockWetness,
 		rockTemp:      'Rock Temp',
 		sunshine:      'Sunshine',
 		wind:          'Wind',
@@ -259,7 +263,7 @@
 					// 5 ─ Saturation max — top of band, fills down to dataset -1
 					{
 						type: 'line',
-						label: 'Saturation (%)',
+						label: `${rockWetness} (%)`,
 						data: satMax,
 						borderColor: COLORS.saturation,
 						backgroundColor: 'rgba(99, 102, 241, 0.22)',
@@ -327,9 +331,9 @@
 								if (v === null || v === undefined) return null;
 								const i = ctx.dataIndex;
 								const ds = ctx.chart.data.datasets;
-								if (ctx.dataset.label === 'Saturation (%)') {
+								if (ctx.dataset.label === `${rockWetness} (%)`) {
 									const minV = ds[IDX.satMin].data[i];
-									if (minV != null) return ` Saturation: ${(+minV).toFixed(0)}% – ${v.toFixed(0)}%`;
+									if (minV != null) return ` Rock wetness: ${(+minV).toFixed(0)}% – ${v.toFixed(0)}%`;
 								}
 								if (ctx.dataset.label === 'Rock Temp (°C)') {
 									const minV = ds[IDX.rockTempMin].data[i];

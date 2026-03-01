@@ -16,9 +16,13 @@
 	let formName = '';
 	let formCode = '';
 
+	function sortCountries(list: Country[]): Country[] {
+		return [...list].sort((a, b) => a.name.localeCompare(b.name));
+	}
+
 	onMount(async () => {
 		try {
-			countries = await api.getCountries();
+			countries = sortCountries(await api.getCountries());
 		} catch {
 			error = 'Failed to load countries.';
 		} finally {
@@ -42,10 +46,10 @@
 		try {
 			if (editingId) {
 				await api.adminUpdateCountry(token, editingId, { name: formName, code: formCode });
-				countries = countries.map(c => c.id === editingId ? { ...c, name: formName, code: formCode } : c);
+				countries = sortCountries(countries.map(c => c.id === editingId ? { ...c, name: formName, code: formCode } : c));
 			} else {
 				await api.adminCreateCountry(token, { name: formName, code: formCode });
-				countries = await api.getCountries();
+				countries = sortCountries(await api.getCountries());
 			}
 			showForm = false; editingId = null;
 		} catch {

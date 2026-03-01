@@ -5,8 +5,9 @@
 	import CountriesSection from './CountriesSection.svelte';
 	import RegionsSection from './RegionsSection.svelte';
 	import ReportsSection from './ReportsSection.svelte';
+	import SuggestionsSection from './SuggestionsSection.svelte';
 
-	type Tab = 'spots' | 'countries' | 'regions' | 'reports';
+	type Tab = 'spots' | 'countries' | 'regions' | 'reports' | 'suggestions';
 
 	let token = '';
 	let username = '';
@@ -50,7 +51,8 @@
 		{ id: 'spots',     label: 'Spots' },
 		{ id: 'countries', label: 'Countries' },
 		{ id: 'regions',   label: 'Regions' },
-		{ id: 'reports',   label: 'Reports' },
+		{ id: 'reports',     label: 'Reports' },
+		{ id: 'suggestions', label: 'Suggestions' },
 	];
 </script>
 
@@ -127,6 +129,8 @@
 				<RegionsSection {token} />
 			{:else if activeTab === 'reports'}
 				<ReportsSection {token} />
+			{:else if activeTab === 'suggestions'}
+				<SuggestionsSection {token} />
 			{/if}
 		</div>
 	</div>

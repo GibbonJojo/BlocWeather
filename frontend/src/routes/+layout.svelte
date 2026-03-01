@@ -26,5 +26,16 @@
 		<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 			<slot />
 		</main>
+
+		<!-- Disclaimer footer -->
+		<footer class="border-t border-gray-200 mt-8 py-6">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<p class="text-xs text-gray-400 text-center">
+					Rock wetness is an estimation based on weather data and may not reflect actual conditions.
+					Always assess conditions yourself before climbing.
+					Never climb on wet sandstone — it damages the rock permanently.
+				</p>
+			</div>
+		</footer>
 	</div>
 {/if}
