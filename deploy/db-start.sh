@@ -11,12 +11,11 @@ echo "Starting blocweather-db container..."
 docker run -d \
     --name blocweather-db \
     --restart unless-stopped \
-    --platform linux/arm64 \
     -e POSTGRES_USER=blocweather \
     -e POSTGRES_PASSWORD="$DB_PASSWORD" \
     -e POSTGRES_DB=blocweather \
     -p 127.0.0.1:5432:5432 \
-    postgis/postgis:16-3.4
+    postgis/postgis:16-3.5
 
 echo "Waiting 15s for database to initialise..."
 sleep 15
