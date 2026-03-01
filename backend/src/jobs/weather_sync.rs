@@ -67,7 +67,7 @@ async fn run_weather_sync(db: &PgPool, api_url: &str) -> Result<(), anyhow::Erro
     let fetcher = WeatherFetcher::new(api_url.to_string());
 
     // Batch spots into groups of 10 (Open-Meteo supports multiple coordinates)
-    let batch_size = 10;
+    let batch_size = 3;
     let mut total_updated = 0;
     let mut total_errors = 0;
 
