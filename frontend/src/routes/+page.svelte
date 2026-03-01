@@ -55,10 +55,13 @@
 	<!-- Hero Section -->
 	<div class="text-center space-y-4">
 		<h1 class="text-4xl md:text-5xl font-bold text-gray-900">
-			Find Perfect Climbing Conditions
+			BlocWeather
 		</h1>
 		<p class="text-lg text-gray-600 max-w-2xl mx-auto">
-			Real-time climbing weather conditions for bouldering and climbing spots worldwide.
+			Real-time weather conditions for bouldering and climbing spots worldwide.
+		</p>
+		<p class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 max-w-xl mx-auto">
+			Rock wetness calculation is still in beta. If you're out at a crag, feel encouraged to report current conditions — there's a button on each crag page. It helps improve the algorithm.
 		</p>
 	</div>
 
