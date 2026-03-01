@@ -89,7 +89,7 @@ pub async fn create_spot_handler(
             name, location, latitude, longitude, country_id, subregion_id,
             description, elevation_meters, rock_type, exposure
         )
-        VALUES ($1, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography, $2, $3, $4, $5, $6, $7, $8, $9)
+        VALUES ($1, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography, $2, $3, $4, $5, $6, $7, $8::rock_type, $9::exposure_type)
         RETURNING id, name, latitude, longitude, country_id, subregion_id,
                   description, elevation_meters,
                   rock_type::text as rock_type,
@@ -169,7 +169,7 @@ pub async fn update_spot_handler(
             location = ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography,
             latitude = $2, longitude = $3, country_id = $4,
             subregion_id = $5, description = $6, elevation_meters = $7,
-            rock_type = $8, exposure = $9,
+            rock_type = $8::rock_type, exposure = $9::exposure_type,
             updated_at = NOW()
         WHERE id = $10
         RETURNING id, name, latitude, longitude, country_id, subregion_id,
