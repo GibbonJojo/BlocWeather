@@ -1,0 +1,17 @@
+[Unit]
+Description=BlocWeather Backend
+After=network.target docker.service
+
+[Service]
+Type=simple
+User=blocweather
+WorkingDirectory=/opt/blocweather/backend
+EnvironmentFile=/opt/blocweather/.env
+ExecStart=/opt/blocweather/backend/target/release/blocweather-backend
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

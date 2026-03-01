@@ -10,6 +10,7 @@ frontend/node_modules/
 .env
 .env.*
 !.env.example
+deploy/config.sh
 
 # OS
 .DS_Store

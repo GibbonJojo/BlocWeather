@@ -1,0 +1,12 @@
+# ── BlocWeather deploy config ─────────────────────────────────────────────────
+# Copy this to deploy/config.sh and fill in your values.
+# deploy/config.sh is in .gitignore — never commit it.
+
+# Your Hetzner server's public IPv4
+export SERVER_IP="1.2.3.4"
+
+# PostgreSQL password (used when starting the DB container)
+export DB_PASSWORD="change-me"
+
+# JWT secret for admin panel (any long random string)
+export JWT_SECRET="change-me-to-something-random-and-long"

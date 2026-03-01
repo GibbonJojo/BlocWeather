@@ -134,7 +134,15 @@ async fn main() {
         .layer(CorsLayer::permissive());
 
     // Start server
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let port: u16 = std::env::var("PORT")
+        .unwrap_or_else(|_| "3000".to_string())
+        .parse()
+        .unwrap_or(3000);
+    let host: std::net::IpAddr = std::env::var("HOST")
+        .unwrap_or_else(|_| "127.0.0.1".to_string())
+        .parse()
+        .unwrap_or_else(|_| [127, 0, 0, 1].into());
+    let addr = SocketAddr::from((host, port));
     tracing::info!("✓ Server listening on http://{}", addr);
     tracing::info!("✓ Health check: http://{}/health", addr);
     tracing::info!("✓ API: http://{}/api/v1/countries", addr);
