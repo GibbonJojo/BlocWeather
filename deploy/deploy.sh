@@ -15,6 +15,8 @@ git pull
 echo "=== [2/4] Build backend ==="
 cd "$REPO/backend"
 source "$HOME/.cargo/env"
+# sqlx query! macros verify queries at compile time — needs DATABASE_URL
+set -a; source "$REPO/.env"; set +a
 cargo build --release
 
 echo "=== [3/4] Build frontend ==="
