@@ -3,8 +3,22 @@
 	import { api } from '$lib/api/client';
 	import type { ConditionStatus } from '$lib/api/client';
 	import type { PageData } from './$types';
+	import { page } from '$app/stores';
 
 	export let data: PageData;
+
+	// ── Embed section ─────────────────────────────────────────────────────────
+	let showEmbed = false;
+	let copied = false;
+
+	$: iframeSrc = `${$page.url.origin}/embed/spots/${data.spot.id}/chart`;
+	$: iframeCode = `<iframe\n  src="${iframeSrc}"\n  width="100%"\n  height="420"\n  frameborder="0"\n  style="border-radius: 8px; border: 1px solid #e5e7eb;"\n></iframe>`;
+
+	async function copyEmbed() {
+		await navigator.clipboard.writeText(iframeCode);
+		copied = true;
+		setTimeout(() => { copied = false; }, 2000);
+	}
 
 	// ── Report modal ──────────────────────────────────────────────────────────
 	let showModal = false;
@@ -124,6 +138,35 @@
 			<p class="text-yellow-600 text-sm mt-1">Data is being fetched. Check back in a few minutes.</p>
 		</div>
 	{/if}
+
+	<!-- Embed section -->
+	<div class="border border-gray-200 rounded-lg overflow-hidden">
+		<button
+			on:click={() => showEmbed = !showEmbed}
+			class="w-full px-4 py-3 flex items-center justify-between text-sm text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
+		>
+			<span class="font-medium">Embed on your website</span>
+			<svg class="w-4 h-4 transition-transform {showEmbed ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+			</svg>
+		</button>
+		{#if showEmbed}
+			<div class="border-t border-gray-200 p-4 space-y-3 bg-gray-50">
+				<pre class="text-xs bg-white border border-gray-200 rounded p-3 overflow-x-auto text-gray-700 whitespace-pre-wrap">{iframeCode}</pre>
+				<div class="flex items-center justify-between gap-3 flex-wrap">
+					<button
+						on:click={copyEmbed}
+						class="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-700 cursor-pointer transition-colors"
+					>
+						{copied ? 'Copied!' : 'Copy code'}
+					</button>
+					<p class="text-xs text-gray-400">
+						Using this on your site? <a href="mailto:dev@blocweather.com" class="text-blue-500 hover:underline">Let me know</a> to make my day!
+					</p>
+				</div>
+			</div>
+		{/if}
+	</div>
 </div>
 
 <!-- Report modal -->
