@@ -45,6 +45,7 @@ pub struct CreateSpotRequest {
     pub elevation_meters: Option<i32>,
     pub rock_type: Option<String>,
     pub exposure: Option<String>,
+    pub climbing_types: Option<Vec<String>>,
 }
 
 #[derive(Deserialize)]
@@ -58,6 +59,7 @@ pub struct UpdateSpotRequest {
     pub elevation_meters: Option<i32>,
     pub rock_type: Option<String>,
     pub exposure: Option<String>,
+    pub climbing_types: Option<Vec<String>>,
 }
 
 #[derive(Serialize, sqlx::FromRow)]
@@ -72,6 +74,7 @@ pub struct SpotResponse {
     pub elevation_meters: Option<i32>,
     pub rock_type: Option<String>,
     pub exposure: Option<String>,
+    pub climbing_types: Vec<String>,
 }
 
 pub async fn create_spot_handler(
@@ -105,6 +108,7 @@ pub async fn create_spot_handler(
     .bind(req.elevation_meters)
     .bind(rock_type)
     .bind(exposure)
+    .bind(&req.climbing_types.unwrap_or_default())
     .fetch_one(db)
     .await
     .map_err(|e| {
@@ -123,6 +127,7 @@ pub async fn create_spot_handler(
         elevation_meters: row.get("elevation_meters"),
         rock_type: row.get("rock_type"),
         exposure: row.get("exposure"),
+        climbing_types: row.get("climbing_types"),
     }))
 }
 
@@ -138,7 +143,7 @@ pub async fn update_spot_handler(
         SELECT id, name, latitude, longitude, country_id, subregion_id,
                description, elevation_meters,
                rock_type::text as rock_type,
-               exposure::text as exposure
+               exposure::text as exposure, climbing_types
         FROM spots
         WHERE id = $1
         "#
@@ -161,6 +166,7 @@ pub async fn update_spot_handler(
     let elevation_meters = req.elevation_meters.or(existing.elevation_meters);
     let rock_type = req.rock_type.or(existing.rock_type).unwrap_or_else(|| "unknown".to_string());
     let exposure = req.exposure.or(existing.exposure).unwrap_or_else(|| "varied".to_string());
+    let climbing_types = req.climbing_types.unwrap_or(existing.climbing_types);
 
     let row = sqlx::query(
         r#"
@@ -170,12 +176,13 @@ pub async fn update_spot_handler(
             latitude = $2, longitude = $3, country_id = $4,
             subregion_id = $5, description = $6, elevation_meters = $7,
             rock_type = $8::rock_type, exposure = $9::exposure_type,
+            climbing_types = $10,
             updated_at = NOW()
-        WHERE id = $10
+        WHERE id = $11
         RETURNING id, name, latitude, longitude, country_id, subregion_id,
                   description, elevation_meters,
                   rock_type::text as rock_type,
-                  exposure::text as exposure
+                  exposure::text as exposure, climbing_types
         "#
     )
     .bind(&name)
@@ -187,6 +194,7 @@ pub async fn update_spot_handler(
     .bind(elevation_meters)
     .bind(&rock_type)
     .bind(&exposure)
+    .bind(&climbing_types)
     .bind(spot_id)
     .fetch_one(db)
     .await
@@ -206,6 +214,7 @@ pub async fn update_spot_handler(
         elevation_meters: row.get("elevation_meters"),
         rock_type: row.get("rock_type"),
         exposure: row.get("exposure"),
+        climbing_types: row.get("climbing_types"),
     }))
 }
 
@@ -244,6 +253,7 @@ pub struct AdminSpotItem {
     pub exposure: Option<String>,
     pub elevation_meters: Option<i32>,
     pub description: Option<String>,
+    pub climbing_types: Vec<String>,
 }
 
 pub async fn list_spots_admin_handler(
@@ -257,7 +267,7 @@ pub async fn list_spots_admin_handler(
             sr.id AS subregion_id, sr.name AS subregion_name,
             s.rock_type::text AS rock_type,
             s.exposure::text AS exposure,
-            s.elevation_meters, s.description
+            s.elevation_meters, s.description, s.climbing_types
         FROM spots s
         JOIN countries c ON s.country_id = c.id
         LEFT JOIN subregions sr ON s.subregion_id = sr.id

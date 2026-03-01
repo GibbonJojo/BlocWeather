@@ -6,6 +6,7 @@
 	export let token: string;
 
 	const ROCK_TYPES = ['granite','sandstone','limestone','basalt','gneiss','quartzite','volcanic','conglomerate','gritstone','unknown'];
+	const CLIMBING_TYPES = ['boulder', 'climbing', 'multipitch'];
 
 	let spots: AdminSpot[] = [];
 	let countries: Country[] = [];
@@ -22,7 +23,7 @@
 
 	function emptyForm(): CreateSpotData {
 		return { name: '', latitude: 0, longitude: 0, country_id: '', subregion_id: undefined,
-			rock_type: 'unknown', description: undefined };
+			rock_type: 'unknown', description: undefined, climbing_types: [] };
 	}
 
 	$: filteredSubregions = subregions.filter(s => s.country_id === form.country_id);
@@ -58,6 +59,7 @@
 			subregion_id: spot.subregion_id,
 			rock_type: spot.rock_type ?? 'unknown',
 			description: spot.description,
+			climbing_types: spot.climbing_types ?? [],
 		};
 		showForm = true;
 		formError = '';
@@ -149,6 +151,17 @@
 						<select bind:value={form.rock_type} class="input">
 							{#each ROCK_TYPES as r}<option value={r}>{r}</option>{/each}
 						</select>
+					</div>
+					<div class="col-span-2">
+						<label class="text-xs text-gray-500">Climbing types</label>
+						<div class="flex gap-3 mt-1">
+							{#each CLIMBING_TYPES as ct}
+								<label class="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+									<input type="checkbox" bind:group={form.climbing_types} value={ct} class="rounded" />
+									{ct}
+								</label>
+							{/each}
+						</div>
 					</div>
 					<div class="col-span-2">
 						<label class="text-xs text-gray-500">Description</label>

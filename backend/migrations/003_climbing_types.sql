@@ -1,0 +1,1 @@
+ALTER TABLE spots ADD COLUMN IF NOT EXISTS climbing_types TEXT[] NOT NULL DEFAULT '{}';

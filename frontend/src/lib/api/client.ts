@@ -28,6 +28,7 @@ export interface Spot {
 	elevation_meters?: number;
 	rock_type?: string;
 	exposure?: string;
+	climbing_types?: string[];
 }
 
 export interface MapSpot {
@@ -94,6 +95,7 @@ export interface AdminSpot {
 	exposure?: string;
 	elevation_meters?: number;
 	description?: string;
+	climbing_types: string[];
 }
 
 export interface AdminSubregion {
@@ -132,6 +134,7 @@ export interface CreateSpotData {
 	exposure?: string;
 	elevation_meters?: number;
 	description?: string;
+	climbing_types: string[];
 }
 
 class ApiClient {

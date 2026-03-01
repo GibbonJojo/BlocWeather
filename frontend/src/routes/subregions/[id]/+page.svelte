@@ -41,15 +41,24 @@
 					class="block bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group"
 				>
 					<div class="p-6">
-						<div class="flex items-start justify-between mb-3">
-							<h3 class="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors flex-1">
+						<div class="flex items-center gap-2 mb-3">
+							<h3 class="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
 								{spot.name}
 							</h3>
-							</div>
+							{#if spot.rock_type && spot.rock_type !== 'unknown'}
+								<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-stone-100 text-stone-700 capitalize shrink-0">{spot.rock_type}</span>
+							{/if}
+						</div>
 
 						{#if spot.description}
 							<p class="text-gray-600 text-sm mb-4 line-clamp-2">{spot.description}</p>
 						{/if}
+
+						<div class="flex flex-wrap gap-1.5 mb-3">
+							{#each (spot.climbing_types ?? []) as ct}
+								<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 capitalize">{ct}</span>
+							{/each}
+						</div>
 
 						<div class="space-y-2 text-sm text-gray-500">
 							{#if spot.elevation_meters}

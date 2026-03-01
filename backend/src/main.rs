@@ -251,6 +251,7 @@ struct SpotListItem {
     longitude: f64,
     rock_type: String,
     exposure: String,
+    climbing_types: Vec<String>,
 }
 
 async fn list_spots_handler(
@@ -262,7 +263,8 @@ async fn list_spots_handler(
         SELECT
             id, name, latitude, longitude,
             rock_type::text as rock_type,
-            exposure::text as exposure
+            exposure::text as exposure,
+            climbing_types
         FROM spots
         WHERE subregion_id = $1
         ORDER BY name
@@ -289,6 +291,7 @@ struct SpotDetail {
     rock_type: String,
     exposure: String,
     description: Option<String>,
+    climbing_types: Vec<String>,
     country: CountryInfo,
     subregion: Option<SubregionInfo>,
     created_at: DateTime<Utc>,
@@ -328,6 +331,7 @@ async fn get_spot_handler(
         country_code: String,
         subregion_id: Option<sqlx::types::Uuid>,
         subregion_name: Option<String>,
+        climbing_types: Vec<String>,
     }
 
     let spot = sqlx::query_as::<_, SpotRow>(
@@ -335,7 +339,7 @@ async fn get_spot_handler(
         SELECT
             s.id, s.name, s.latitude, s.longitude, s.elevation_meters,
             s.rock_type::text as rock_type, s.exposure::text as exposure,
-            s.description, s.created_at,
+            s.description, s.created_at, s.climbing_types,
             c.id as country_id, c.name as country_name, c.code as country_code,
             sr.id as subregion_id, sr.name as subregion_name
         FROM spots s
@@ -362,6 +366,7 @@ async fn get_spot_handler(
         rock_type: spot.rock_type.unwrap_or_else(|| "unknown".to_string()),
         exposure: spot.exposure.unwrap_or_else(|| "unknown".to_string()),
         description: spot.description,
+        climbing_types: spot.climbing_types,
         country: CountryInfo {
             id: spot.country_id,
             name: spot.country_name,
