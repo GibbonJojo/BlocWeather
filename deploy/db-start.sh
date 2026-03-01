@@ -11,6 +11,7 @@ echo "Starting blocweather-db container..."
 docker run -d \
     --name blocweather-db \
     --restart unless-stopped \
+    --platform linux/arm64 \
     -e POSTGRES_USER=blocweather \
     -e POSTGRES_PASSWORD="$DB_PASSWORD" \
     -e POSTGRES_DB=blocweather \
