@@ -156,8 +156,8 @@
 				const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
 				if (!x) return;
 				ctx.save();
-				ctx.lineWidth = 1;
-				ctx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
+				ctx.lineWidth = 2;
+				ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
 				for (const idx of midnightIndices) {
 					const xPos = x.getPixelForValue(idx);
 					ctx.beginPath();
@@ -411,6 +411,7 @@
 	// Min chart pixel width so mobile can horizontally scroll
 	$: minChartWidth = Math.max(weather.length * 5, 600);
 
+	let showRockWetnessInfo = false;
 </script>
 
 <!-- Toggle chips -->
@@ -425,8 +426,26 @@
 		>
 			{label}
 		</button>
+		{#if key === 'saturation'}
+			<button
+				on:click={() => showRockWetnessInfo = !showRockWetnessInfo}
+				class="flex items-center justify-center w-7 h-7 rounded-full text-sm transition-colors cursor-pointer -ml-1"
+				style={showRockWetnessInfo
+					? `background-color: ${COLORS.saturation}22; color: ${COLORS.saturation};`
+					: 'color: #9ca3af;'}
+				title="What is Rock wetness?"
+			>ⓘ</button>
+		{/if}
 	{/each}
 </div>
+
+{#if showRockWetnessInfo}
+	<div class="mb-3 p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-xs text-gray-600 space-y-1.5">
+		<p><strong class="text-gray-800">Rock wetness</strong> estimates how wet the rock surface is likely to be, based on recent precipitation, humidity, wind, sunshine, and modelled rock surface temperature.</p>
+		<p><strong class="text-gray-700">0%</strong> = likely dry &nbsp;·&nbsp; <strong class="text-gray-700">100%</strong> = fully saturated. The shaded band shows the range between a best-case (sun-exposed) and worst-case (shaded, north-facing) scenario.</p>
+		<p class="text-gray-400">This is a model estimation — always assess conditions in person before climbing.</p>
+	</div>
+{/if}
 
 <!-- Scrollable chart wrapper -->
 <div class="overflow-x-auto rounded">
