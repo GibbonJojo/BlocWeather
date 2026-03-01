@@ -119,7 +119,7 @@ async fn run_weather_sync(db: &PgPool, api_url: &str) -> Result<(), anyhow::Erro
 }
 
 /// Spot data from database
-#[derive(Debug)]
+#[derive(Debug, sqlx::FromRow)]
 struct SpotInfo {
     id: Uuid,
     name: String,
@@ -132,8 +132,7 @@ struct SpotInfo {
 
 /// Fetch all spots from database
 async fn fetch_all_spots(db: &PgPool) -> Result<Vec<SpotInfo>, sqlx::Error> {
-    sqlx::query_as!(
-        SpotInfo,
+    sqlx::query_as::<_, SpotInfo>(
         r#"
         SELECT
             id,
@@ -141,8 +140,8 @@ async fn fetch_all_spots(db: &PgPool) -> Result<Vec<SpotInfo>, sqlx::Error> {
             latitude,
             longitude,
             elevation_meters,
-            rock_type::text as "rock_type!",
-            exposure::text as "exposure!"
+            rock_type::text as rock_type,
+            exposure::text as exposure
         FROM spots
         ORDER BY created_at
         "#
