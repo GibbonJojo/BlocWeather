@@ -1,0 +1,14 @@
+/* Tailwind CSS v4 */
+@import "tailwindcss";
+
+/* Custom styles */
+body {
+	@apply antialiased;
+}
+
+/* Leaflet map styles */
+.leaflet-container {
+	@apply rounded-lg shadow-lg;
+	height: 100%;
+	width: 100%;
+}

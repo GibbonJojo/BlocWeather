@@ -1,0 +1,23 @@
+[
+    {
+        "location": "hohenfels",
+        "date": "2026-02-07",
+        "time": "14:00",
+        "max": 11,
+        "min": 6
+    },
+    {
+        "location": "hohenfels",
+        "date": "2025-12-21",
+        "time": "14:00",
+        "max": 10,
+        "min": 8
+    },
+    {
+        "location": "hohenfels",
+        "date": "2025-11-22",
+        "time": "14:00",
+        "max": 2.5,
+        "min": 0
+    }
+]

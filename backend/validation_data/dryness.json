@@ -1,0 +1,63 @@
+[
+    {
+        "location": "hohenfels",
+        "date": "2025-10-03",
+        "dryness": 0
+    },
+    {
+        "location": "hohenfels",
+        "date": "2026-02-25",
+        "dryness": 3
+    },
+    {
+        "location": "hohenfels",
+        "date": "2025-11-09",
+        "dryness": 1
+    },
+        {
+        "location": "glees",
+        "date": "2025-11-09",
+        "dryness": 3
+    },
+    {
+        "location": "hohenfels",
+        "date": "2025-11-22",
+        "dryness": 0
+    },
+
+    {
+        "location": "hohenfels",
+        "date": "2026-02-07",
+        "dryness": 2,
+        "comment": "Very exposed stuff only dry"
+    },
+    {
+        "location": "hohenfels",
+        "date": "2025-12-21",
+        "dryness": 3
+    },
+
+    {
+        "location": "glees",
+        "date": "2025-11-02",
+        "dryness": 1,
+        "comment": "Topouts wet"
+    },
+    {
+        "location": "kottenheim",
+        "date": "2025-11-02",
+        "dryness": 3
+    },
+
+    {
+        "location": "meirother_kopf",
+        "date": "2025-11-12",
+        "dryness": 1,
+        "comment": "Some topouts covered in leaves or moss still a little bit wet"
+    },
+    {
+        "location": "meirother_kopf",
+        "date": "2025-12-04",
+        "dryness": 3
+    }
+]

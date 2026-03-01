@@ -1,0 +1,23 @@
+[
+    {
+        "name": "hohenfels",
+        "latitude":  50.25410069306869,
+        "longitude": 6.732309599262649
+    },
+    {
+        "name": "glees",
+        "latitude": 50.4409928093545,
+        "longitude": 7.261405416385613
+    },
+    {
+        "name": "kottenheim",
+        "latitude": 50.356880450898615,
+        "longitude": 7.237911532955806
+    },
+    {
+        "name": "meirother_kopf",
+        "latitude": 50.42450285512038,
+        "longitude": 7.188309246667259
+    }
+    
+]
