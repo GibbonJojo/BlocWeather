@@ -7,12 +7,19 @@
 
 	export let data: PageData;
 
+	$: countrySlug = data.spot.country?.slug ?? '';
+	$: regionSlug = data.spot.subregion?.slug ?? '-';
+	$: backHref = `/${countrySlug}/${regionSlug}`;
+
 	// ── Embed section ─────────────────────────────────────────────────────────
 	let showEmbed = false;
 	let copied = false;
+	let copied2 = false;
 
-	$: iframeSrc = `${$page.url.origin}/embed/spots/${data.spot.id}/chart`;
+	$: iframeSrc = `${$page.url.origin}/embed/${countrySlug}/${regionSlug}/${data.spot.slug}/chart`;
 	$: iframeCode = `<iframe\n  src="${iframeSrc}"\n  width="100%"\n  height="420"\n  frameborder="0"\n  style="border-radius: 8px; border: 1px solid #e5e7eb;"\n></iframe>`;
+	$: iframeReportSrc = `${$page.url.origin}/embed/${countrySlug}/${regionSlug}/${data.spot.slug}/report`;
+	$: iframeReportCode = `<iframe\n  src="${iframeReportSrc}"\n  width="100%"\n  height="220"\n  frameborder="0"\n  style="border-radius: 8px; border: 1px solid #e5e7eb;"\n></iframe>`;
 
 	async function copyEmbed() {
 		await navigator.clipboard.writeText(iframeCode);
@@ -20,46 +27,40 @@
 		setTimeout(() => { copied = false; }, 2000);
 	}
 
+	async function copyEmbed2() {
+		await navigator.clipboard.writeText(iframeReportCode);
+		copied2 = true;
+		setTimeout(() => { copied2 = false; }, 2000);
+	}
+
 	// ── Report modal ──────────────────────────────────────────────────────────
 	let showModal = false;
-	let selectedStatus: ConditionStatus | '' = '';
+	let selectedStatus = '';
 	let observedTime = '';
 	let submitting = false;
 	let submitSuccess = false;
 	let submitError = '';
 
-	const STATUS_LABELS: Record<ConditionStatus, string> = {
+	const STATUS_LABELS: Record<string, string> = {
 		dry:        'Dry',
 		some_wet:   'Some wet',
 		mostly_wet: 'Mostly wet',
 		wet:        'Wet',
 	};
 
-	const STATUS_STYLES: Record<ConditionStatus, string> = {
+	const STATUS_STYLES: Record<string, string> = {
 		dry:        'border-green-500 text-green-700 bg-green-50',
 		some_wet:   'border-amber-400 text-amber-700 bg-amber-50',
 		mostly_wet: 'border-orange-500 text-orange-700 bg-orange-50',
 		wet:        'border-blue-500 text-blue-700 bg-blue-50',
 	};
 
-	const STATUS_ACTIVE: Record<ConditionStatus, string> = {
+	const STATUS_ACTIVE: Record<string, string> = {
 		dry:        'bg-green-500 text-white border-green-500',
 		some_wet:   'bg-amber-400 text-white border-amber-400',
 		mostly_wet: 'bg-orange-500 text-white border-orange-500',
 		wet:        'bg-blue-500 text-white border-blue-500',
 	};
-
-	function selectStatus(s: string) {
-		selectedStatus = s as ConditionStatus;
-	}
-
-	function buttonClass(status: string): string {
-		const base = 'py-2 px-3 rounded-lg border text-sm font-medium transition-all cursor-pointer';
-		const s = status as ConditionStatus;
-		return selectedStatus === status
-			? `${base} ${STATUS_ACTIVE[s]}`
-			: `${base} ${STATUS_STYLES[s]}`;
-	}
 
 	function openModal() {
 		const now = new Date();
@@ -84,7 +85,7 @@
 		submitError = '';
 		try {
 			const observedAt = new Date(observedTime).toISOString();
-			await api.submitReport(data.spot.id, observedAt, selectedStatus);
+			await api.submitReport(data.spot.id, observedAt, selectedStatus as ConditionStatus);
 			submitSuccess = true;
 			setTimeout(() => { showModal = false; submitSuccess = false; }, 1800);
 		} catch {
@@ -102,15 +103,15 @@
 
 <div class="space-y-4">
 	<!-- Back button -->
-	<button
-		on:click={() => window.history.back()}
-		class="inline-flex items-center text-blue-600 hover:text-blue-700 transition-colors cursor-pointer"
+	<a
+		href={backHref}
+		class="inline-flex items-center text-blue-600 hover:text-blue-700 transition-colors"
 	>
 		<svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
 		</svg>
-		Back
-	</button>
+		{data.spot.subregion?.name ?? data.spot.country?.name ?? 'Back'}
+	</a>
 
 	<!-- Crag name + report button -->
 	<div class="flex items-center justify-between gap-4">
@@ -164,6 +165,19 @@
 						Using this on your site? <a href="mailto:dev@blocweather.com" class="text-blue-500 hover:underline">Let me know</a> to make my day!
 					</p>
 				</div>
+
+			<!-- Condition report embed -->
+			<div class="border-t border-gray-100 pt-3 space-y-2">
+				<p class="text-xs font-medium text-gray-600">Condition report widget</p>
+				<pre class="text-xs bg-white border border-gray-200 rounded p-3 overflow-x-auto text-gray-700 whitespace-pre-wrap">{iframeReportCode}</pre>
+				<button
+					on:click={copyEmbed2}
+					class="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-700 cursor-pointer transition-colors"
+				>
+					{copied2 ? 'Copied!' : 'Copy code'}
+				</button>
+			</div>
+
 			</div>
 		{/if}
 	</div>
@@ -207,7 +221,7 @@
 					<p class="text-sm font-medium text-gray-700">Rock conditions</p>
 					<div class="grid grid-cols-2 gap-2">
 						{#each Object.entries(STATUS_LABELS) as [status, label]}
-							<button on:click={() => selectStatus(status)} class={buttonClass(status)}>
+							<button on:click={() => { selectedStatus = status; }} class="py-2 px-3 rounded-lg border text-sm font-medium transition-all cursor-pointer {selectedStatus === status ? STATUS_ACTIVE[status] : STATUS_STYLES[status]}">
 								{label}
 							</button>
 						{/each}

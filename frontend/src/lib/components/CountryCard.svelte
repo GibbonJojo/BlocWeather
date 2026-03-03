@@ -5,7 +5,7 @@
 </script>
 
 <a
-	href="/countries/{country.id}"
+	href="/{country.slug}"
 	class="block bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden group"
 >
 	<div class="p-6">

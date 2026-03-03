@@ -185,6 +185,7 @@
 						<th class="pb-2 pr-4 font-medium">Name</th>
 						<th class="pb-2 pr-4 font-medium">Country / Region</th>
 						<th class="pb-2 pr-4 font-medium">Rock</th>
+						<th class="pb-2 pr-4 font-medium text-gray-400">Slug</th>
 						<th class="pb-2 font-medium">Actions</th>
 					</tr>
 				</thead>
@@ -196,6 +197,7 @@
 								{spot.country_name}{spot.subregion_name ? ` / ${spot.subregion_name}` : ''}
 							</td>
 							<td class="py-2 pr-4 text-gray-500">{spot.rock_type ?? '—'}</td>
+							<td class="py-2 pr-4 text-gray-400 text-xs font-mono">{spot.slug}</td>
 								<td class="py-2 flex gap-2">
 								<button on:click={() => startEdit(spot)} class="text-blue-600 hover:underline cursor-pointer text-xs">Edit</button>
 								<button on:click={() => remove(spot.id, spot.name)} class="text-red-500 hover:underline cursor-pointer text-xs">Delete</button>

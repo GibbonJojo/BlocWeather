@@ -23,7 +23,7 @@
 					.bindPopup(
 						`<div style="text-align:center;min-width:110px">
 							<strong>${spot.name}</strong><br>
-							<a href="/spots/${spot.id}" style="color:#2563eb;font-size:12px">View details →</a>
+							<a href="/${spot.country_slug}/${spot.region_slug}/${spot.spot_slug}" style="color:#2563eb;font-size:12px">View details →</a>
 						</div>`
 					)
 					.addTo(layerGroup!);

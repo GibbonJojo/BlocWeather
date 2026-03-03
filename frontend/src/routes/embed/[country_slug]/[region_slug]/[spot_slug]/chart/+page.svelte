@@ -13,7 +13,7 @@
 	<div class="flex items-baseline justify-between mb-3">
 		<span class="font-semibold text-gray-900 text-sm">{data.spot.name}</span>
 		<a
-			href="/{data.spot.country?.slug ?? ""}/{data.spot.subregion?.slug ?? "-"}/{data.spot.slug}"
+			href="/{data.spot.country?.slug ?? ''}/{data.spot.subregion?.slug ?? '-'}/{data.spot.slug}"
 			target="_blank"
 			rel="noopener"
 			class="text-xs text-blue-600 hover:underline shrink-0 ml-4"
