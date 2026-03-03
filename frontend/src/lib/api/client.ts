@@ -7,12 +7,14 @@ export interface Country {
 	id: string;
 	name: string;
 	code: string;
+	slug: string;
 	spot_count: number;
 }
 
 export interface Subregion {
 	id: string;
 	name: string;
+	slug: string;
 	country_id: string;
 	spot_count: number;
 }
@@ -20,6 +22,7 @@ export interface Subregion {
 export interface Spot {
 	id: string;
 	name: string;
+	slug: string;
 	latitude: number;
 	longitude: number;
 	country_id: string;
@@ -29,6 +32,37 @@ export interface Spot {
 	rock_type?: string;
 	exposure?: string;
 	climbing_types?: string[];
+	// Present when fetched via get_spot_handler or data_spot_handler
+	country?: { id: string; name: string; code: string; slug: string };
+	subregion?: { id: string; name: string; slug: string } | null;
+	created_at?: string;
+}
+
+export interface SpotListItem {
+	id: string;
+	name: string;
+	slug: string;
+	latitude: number;
+	longitude: number;
+	rock_type: string;
+	exposure: string;
+	climbing_types: string[];
+}
+
+export interface CountryData {
+	id: string;
+	name: string;
+	code: string;
+	slug: string;
+	subregions: Array<{ id: string; name: string; slug: string; spot_count: number }>;
+}
+
+export interface SubregionData {
+	id: string;
+	name: string;
+	slug: string;
+	country: { id: string; name: string; code: string; slug: string };
+	spots: SpotListItem[];
 }
 
 export interface MapSpot {
@@ -37,6 +71,9 @@ export interface MapSpot {
 	latitude: number;
 	longitude: number;
 	saturation?: number; // max_saturation 0–1 for map coloring
+	country_slug: string;
+	region_slug: string;
+	spot_slug: string;
 }
 
 export interface WeatherData {
@@ -85,6 +122,7 @@ export interface ConditionReport {
 export interface AdminSpot {
 	id: string;
 	name: string;
+	slug: string;
 	latitude: number;
 	longitude: number;
 	country_id: string;
@@ -222,6 +260,18 @@ class ApiClient {
 	async search(q: string): Promise<SearchResult[]> {
 		if (q.trim().length < 2) return [];
 		return this.request<SearchResult[]>(`/search?q=${encodeURIComponent(q.trim())}`);
+	}
+
+	async getCountryBySlug(countrySlug: string): Promise<CountryData> {
+		return this.request<CountryData>(`/data/${countrySlug}`);
+	}
+
+	async getSubregionBySlug(countrySlug: string, regionSlug: string): Promise<SubregionData> {
+		return this.request<SubregionData>(`/data/${countrySlug}/${regionSlug}`);
+	}
+
+	async getSpotBySlug(countrySlug: string, regionSlug: string, spotSlug: string): Promise<Spot> {
+		return this.request<Spot>(`/data/${countrySlug}/${regionSlug}/${spotSlug}`);
 	}
 
 	async submitReport(spotId: string, observedAt: string, status: ConditionStatus): Promise<ConditionReport> {

@@ -66,6 +66,7 @@ pub struct UpdateSpotRequest {
 pub struct SpotResponse {
     pub id: Uuid,
     pub name: String,
+    pub slug: String,
     pub latitude: f64,
     pub longitude: f64,
     pub country_id: Uuid,
@@ -85,21 +86,23 @@ pub async fn create_spot_handler(
 
     let rock_type = req.rock_type.as_deref().unwrap_or("unknown");
     let exposure = req.exposure.as_deref().unwrap_or("varied");
+    let slug = crate::unique_spot_slug(db, &crate::slugify_name(&req.name)).await?;
 
     let row = sqlx::query(
         r#"
         INSERT INTO spots (
-            name, location, latitude, longitude, country_id, subregion_id,
-            description, elevation_meters, rock_type, exposure
+            name, slug, location, latitude, longitude, country_id, subregion_id,
+            description, elevation_meters, rock_type, exposure, climbing_types
         )
-        VALUES ($1, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography, $2, $3, $4, $5, $6, $7, $8::rock_type, $9::exposure_type)
-        RETURNING id, name, latitude, longitude, country_id, subregion_id,
+        VALUES ($1, $2, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography, $3, $4, $5, $6, $7, $8, $9::rock_type, $10::exposure_type, $11)
+        RETURNING id, name, slug, latitude, longitude, country_id, subregion_id,
                   description, elevation_meters,
                   rock_type::text as rock_type,
-                  exposure::text as exposure
+                  exposure::text as exposure, climbing_types
         "#
     )
     .bind(&req.name)
+    .bind(&slug)
     .bind(req.latitude)
     .bind(req.longitude)
     .bind(req.country_id)
@@ -119,6 +122,7 @@ pub async fn create_spot_handler(
     Ok(Json(SpotResponse {
         id: row.get("id"),
         name: row.get("name"),
+        slug: row.get("slug"),
         latitude: row.get("latitude"),
         longitude: row.get("longitude"),
         country_id: row.get("country_id"),
@@ -140,7 +144,7 @@ pub async fn update_spot_handler(
 
     let existing = sqlx::query_as::<_, SpotResponse>(
         r#"
-        SELECT id, name, latitude, longitude, country_id, subregion_id,
+        SELECT id, name, slug, latitude, longitude, country_id, subregion_id,
                description, elevation_meters,
                rock_type::text as rock_type,
                exposure::text as exposure, climbing_types
@@ -179,7 +183,7 @@ pub async fn update_spot_handler(
             climbing_types = $10,
             updated_at = NOW()
         WHERE id = $11
-        RETURNING id, name, latitude, longitude, country_id, subregion_id,
+        RETURNING id, name, slug, latitude, longitude, country_id, subregion_id,
                   description, elevation_meters,
                   rock_type::text as rock_type,
                   exposure::text as exposure, climbing_types
@@ -206,6 +210,7 @@ pub async fn update_spot_handler(
     Ok(Json(SpotResponse {
         id: row.get("id"),
         name: row.get("name"),
+        slug: row.get("slug"),
         latitude: row.get("latitude"),
         longitude: row.get("longitude"),
         country_id: row.get("country_id"),
@@ -243,6 +248,7 @@ pub async fn delete_spot_handler(
 pub struct AdminSpotItem {
     pub id: Uuid,
     pub name: String,
+    pub slug: String,
     pub latitude: f64,
     pub longitude: f64,
     pub country_id: Uuid,
@@ -262,7 +268,7 @@ pub async fn list_spots_admin_handler(
     let spots = sqlx::query_as::<_, AdminSpotItem>(
         r#"
         SELECT
-            s.id, s.name, s.latitude, s.longitude,
+            s.id, s.name, s.slug, s.latitude, s.longitude,
             c.id AS country_id, c.name AS country_name,
             sr.id AS subregion_id, sr.name AS subregion_name,
             s.rock_type::text AS rock_type,

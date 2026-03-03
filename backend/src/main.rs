@@ -128,7 +128,11 @@ async fn main() {
         .route("/api/v1/spots/:spot_id/reports", post(submit_report_handler))
         .route("/api/v1/search", get(search_handler))
         .route("/api/v1/suggestions", post(admin::submit_suggestion_handler))
-        .route("/api/v1/admin/login", post(admin::login_handler));
+        .route("/api/v1/admin/login", post(admin::login_handler))
+        .route("/api/v1/data/:country", get(data_country_handler))
+        .route("/api/v1/data/:country/:region", get(data_region_handler))
+        .route("/api/v1/data/:country/:region/:spot", get(data_spot_handler))
+        .route("/api/v1/data/:country/:region/:spot/reports", post(submit_report_by_slug_handler));
 
     // Combine routes
     let app = public_routes
@@ -176,6 +180,7 @@ struct Country {
     id: sqlx::types::Uuid,
     name: String,
     code: String,
+    slug: String,
     spot_count: i64,
 }
 
@@ -184,10 +189,10 @@ async fn list_countries_handler(
 ) -> Result<Json<Vec<Country>>, (StatusCode, String)> {
     let countries = sqlx::query_as::<_, Country>(
         r#"
-        SELECT c.id, c.name, c.code, COUNT(s.id) as spot_count
+        SELECT c.id, c.name, c.code, c.slug, COUNT(s.id) as spot_count
         FROM countries c
         LEFT JOIN spots s ON s.country_id = c.id
-        GROUP BY c.id, c.name, c.code
+        GROUP BY c.id, c.name, c.code, c.slug
         ORDER BY c.name
         "#
     )
@@ -212,6 +217,7 @@ struct Subregion {
 struct SubregionWithCount {
     id: sqlx::types::Uuid,
     name: String,
+    slug: String,
     spot_count: i64,
 }
 
@@ -224,11 +230,12 @@ async fn list_subregions_handler(
         SELECT
             sr.id,
             sr.name,
+            sr.slug,
             COUNT(s.id) as spot_count
         FROM subregions sr
         LEFT JOIN spots s ON sr.id = s.subregion_id
         WHERE sr.country_id = $1
-        GROUP BY sr.id, sr.name
+        GROUP BY sr.id, sr.name, sr.slug
         ORDER BY sr.name
         "#
     )
@@ -247,6 +254,7 @@ async fn list_subregions_handler(
 struct SpotListItem {
     id: sqlx::types::Uuid,
     name: String,
+    slug: String,
     latitude: f64,
     longitude: f64,
     rock_type: String,
@@ -261,7 +269,7 @@ async fn list_spots_handler(
     let spots = sqlx::query_as::<_, SpotListItem>(
         r#"
         SELECT
-            id, name, latitude, longitude,
+            id, name, slug, latitude, longitude,
             rock_type::text as rock_type,
             exposure::text as exposure,
             climbing_types
@@ -285,6 +293,7 @@ async fn list_spots_handler(
 struct SpotDetail {
     id: sqlx::types::Uuid,
     name: String,
+    slug: String,
     latitude: f64,
     longitude: f64,
     elevation_meters: Option<i32>,
@@ -302,12 +311,14 @@ struct CountryInfo {
     id: sqlx::types::Uuid,
     name: String,
     code: String,
+    slug: String,
 }
 
 #[derive(Serialize)]
 struct SubregionInfo {
     id: sqlx::types::Uuid,
     name: String,
+    slug: String,
 }
 
 async fn get_spot_handler(
@@ -319,6 +330,7 @@ async fn get_spot_handler(
     struct SpotRow {
         id: sqlx::types::Uuid,
         name: String,
+        slug: String,
         latitude: f64,
         longitude: f64,
         elevation_meters: Option<i32>,
@@ -329,19 +341,21 @@ async fn get_spot_handler(
         country_id: sqlx::types::Uuid,
         country_name: String,
         country_code: String,
+        country_slug: String,
         subregion_id: Option<sqlx::types::Uuid>,
         subregion_name: Option<String>,
+        subregion_slug: Option<String>,
         climbing_types: Vec<String>,
     }
 
     let spot = sqlx::query_as::<_, SpotRow>(
         r#"
         SELECT
-            s.id, s.name, s.latitude, s.longitude, s.elevation_meters,
+            s.id, s.name, s.slug, s.latitude, s.longitude, s.elevation_meters,
             s.rock_type::text as rock_type, s.exposure::text as exposure,
             s.description, s.created_at, s.climbing_types,
-            c.id as country_id, c.name as country_name, c.code as country_code,
-            sr.id as subregion_id, sr.name as subregion_name
+            c.id as country_id, c.name as country_name, c.code as country_code, c.slug as country_slug,
+            sr.id as subregion_id, sr.name as subregion_name, sr.slug as subregion_slug
         FROM spots s
         JOIN countries c ON s.country_id = c.id
         LEFT JOIN subregions sr ON s.subregion_id = sr.id
@@ -360,6 +374,7 @@ async fn get_spot_handler(
     let detail = SpotDetail {
         id: spot.id,
         name: spot.name,
+        slug: spot.slug,
         latitude: spot.latitude,
         longitude: spot.longitude,
         elevation_meters: spot.elevation_meters,
@@ -371,9 +386,10 @@ async fn get_spot_handler(
             id: spot.country_id,
             name: spot.country_name,
             code: spot.country_code,
+            slug: spot.country_slug,
         },
-        subregion: match (spot.subregion_id, spot.subregion_name) {
-            (Some(id), Some(name)) => Some(SubregionInfo { id, name }),
+        subregion: match (spot.subregion_id, spot.subregion_name, spot.subregion_slug) {
+            (Some(id), Some(name), Some(slug)) => Some(SubregionInfo { id, name, slug }),
             _ => None,
         },
         created_at: spot.created_at,
@@ -499,6 +515,9 @@ struct MapSpot {
     latitude: f64,
     longitude: f64,
     saturation: Option<f32>,
+    country_slug: String,
+    region_slug: String,
+    spot_slug: String,
 }
 
 async fn get_map_spots_handler(
@@ -512,6 +531,9 @@ async fn get_map_spots_handler(
         latitude: f64,
         longitude: f64,
         saturation: Option<f32>,
+        country_slug: String,
+        region_slug: String,
+        spot_slug: String,
     }
 
     let spots = sqlx::query_as::<_, MapSpotRow>(
@@ -521,8 +543,13 @@ async fn get_map_spots_handler(
             s.name,
             s.latitude,
             s.longitude,
-            cc.max_saturation as saturation
+            cc.max_saturation as saturation,
+            c.slug as country_slug,
+            COALESCE(sr.slug, '-') as region_slug,
+            s.slug as spot_slug
         FROM spots s
+        LEFT JOIN countries c ON c.id = s.country_id
+        LEFT JOIN subregions sr ON sr.id = s.subregion_id
         LEFT JOIN LATERAL (
             SELECT max_saturation
             FROM climbing_conditions
@@ -555,10 +582,211 @@ async fn get_map_spots_handler(
             latitude: row.latitude,
             longitude: row.longitude,
             saturation: row.saturation,
+            country_slug: row.country_slug,
+            region_slug: row.region_slug,
+            spot_slug: row.spot_slug,
         })
         .collect();
 
     Ok(Json(result))
+}
+
+
+// ── Slug utilities ─────────────────────────────────────────────────────────
+
+fn slugify_name(name: &str) -> String {
+    let lower = name.to_lowercase();
+    let mut result = String::new();
+    let mut prev_hyphen = false;
+    for c in lower.chars() {
+        if c.is_alphanumeric() {
+            result.push(c);
+            prev_hyphen = false;
+        } else if !prev_hyphen && !result.is_empty() {
+            result.push('-');
+            prev_hyphen = true;
+        }
+    }
+    result.trim_end_matches('-').to_string()
+}
+
+async fn unique_spot_slug(db: &sqlx::PgPool, base: &str) -> Result<String, (StatusCode, String)> {
+    let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM spots WHERE slug = $1")
+        .bind(base).fetch_one(db).await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
+    if count == 0 { return Ok(base.to_string()); }
+    for i in 2..=99 {
+        let candidate = format!("{}-{}", base, i);
+        let (c,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM spots WHERE slug = $1")
+            .bind(&candidate).fetch_one(db).await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
+        if c == 0 { return Ok(candidate); }
+    }
+    Err((StatusCode::INTERNAL_SERVER_ERROR, "Could not generate unique slug".to_string()))
+}
+
+// ── /api/v1/data handlers ──────────────────────────────────────────────────
+
+#[derive(Serialize)]
+struct SubregionSummary {
+    id: sqlx::types::Uuid,
+    name: String,
+    slug: String,
+    spot_count: i64,
+}
+
+#[derive(Serialize)]
+struct CountryData {
+    id: sqlx::types::Uuid,
+    name: String,
+    code: String,
+    slug: String,
+    subregions: Vec<SubregionSummary>,
+}
+
+async fn data_country_handler(
+    State(state): State<AppState>,
+    Path(country_slug): Path<String>,
+) -> Result<Json<CountryData>, (StatusCode, String)> {
+    #[derive(sqlx::FromRow)]
+    struct CountryRow { id: sqlx::types::Uuid, name: String, code: String, slug: String }
+    let country = sqlx::query_as::<_, CountryRow>(
+        "SELECT id, name, code, slug FROM countries WHERE slug = $1"
+    )
+    .bind(&country_slug).fetch_optional(&state.db).await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?
+    .ok_or_else(|| (StatusCode::NOT_FOUND, "Country not found".to_string()))?;
+
+    #[derive(sqlx::FromRow)]
+    struct SrRow { id: sqlx::types::Uuid, name: String, slug: String, spot_count: i64 }
+    let subregions = sqlx::query_as::<_, SrRow>(
+        r#"SELECT sr.id, sr.name, sr.slug, COUNT(s.id) as spot_count
+           FROM subregions sr
+           LEFT JOIN spots s ON s.subregion_id = sr.id
+           WHERE sr.country_id = $1
+           GROUP BY sr.id, sr.name, sr.slug
+           ORDER BY sr.name"#
+    )
+    .bind(country.id).fetch_all(&state.db).await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
+
+    Ok(Json(CountryData {
+        id: country.id, name: country.name, code: country.code, slug: country.slug,
+        subregions: subregions.into_iter().map(|r| SubregionSummary {
+            id: r.id, name: r.name, slug: r.slug, spot_count: r.spot_count,
+        }).collect(),
+    }))
+}
+
+#[derive(Serialize)]
+struct SubregionData {
+    id: sqlx::types::Uuid,
+    name: String,
+    slug: String,
+    country: CountryInfo,
+    spots: Vec<SpotListItem>,
+}
+
+async fn data_region_handler(
+    State(state): State<AppState>,
+    Path((country_slug, region_slug)): Path<(String, String)>,
+) -> Result<Json<SubregionData>, (StatusCode, String)> {
+    #[derive(sqlx::FromRow)]
+    struct SrRow {
+        id: sqlx::types::Uuid, name: String, slug: String,
+        country_id: sqlx::types::Uuid, country_name: String,
+        country_code: String, country_slug: String,
+    }
+    let sr = sqlx::query_as::<_, SrRow>(
+        r#"SELECT sr.id, sr.name, sr.slug,
+                  c.id as country_id, c.name as country_name,
+                  c.code as country_code, c.slug as country_slug
+           FROM subregions sr
+           JOIN countries c ON sr.country_id = c.id
+           WHERE sr.slug = $1 AND c.slug = $2"#
+    )
+    .bind(&region_slug).bind(&country_slug)
+    .fetch_optional(&state.db).await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?
+    .ok_or_else(|| (StatusCode::NOT_FOUND, "Region not found".to_string()))?;
+
+    let spots = sqlx::query_as::<_, SpotListItem>(
+        r#"SELECT id, name, slug, latitude, longitude,
+                  rock_type::text as rock_type, exposure::text as exposure, climbing_types
+           FROM spots WHERE subregion_id = $1 ORDER BY name"#
+    )
+    .bind(sr.id).fetch_all(&state.db).await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
+
+    Ok(Json(SubregionData {
+        id: sr.id, name: sr.name, slug: sr.slug,
+        country: CountryInfo { id: sr.country_id, name: sr.country_name, code: sr.country_code, slug: sr.country_slug },
+        spots,
+    }))
+}
+
+async fn data_spot_handler(
+    State(state): State<AppState>,
+    Path((country_slug, region_slug, spot_slug)): Path<(String, String, String)>,
+) -> Result<Json<SpotDetail>, (StatusCode, String)> {
+    #[derive(sqlx::FromRow)]
+    struct SpotRow {
+        id: sqlx::types::Uuid, name: String, slug: String,
+        latitude: f64, longitude: f64, elevation_meters: Option<i32>,
+        rock_type: Option<String>, exposure: Option<String>,
+        description: Option<String>, created_at: DateTime<Utc>,
+        country_id: sqlx::types::Uuid, country_name: String,
+        country_code: String, country_slug: String,
+        subregion_id: Option<sqlx::types::Uuid>, subregion_name: Option<String>,
+        subregion_slug: Option<String>, climbing_types: Vec<String>,
+    }
+
+    let no_region = region_slug == "-";
+
+    let sql = if no_region {
+        r#"SELECT s.id, s.name, s.slug, s.latitude, s.longitude, s.elevation_meters,
+                  s.rock_type::text as rock_type, s.exposure::text as exposure,
+                  s.description, s.created_at, s.climbing_types,
+                  c.id as country_id, c.name as country_name, c.code as country_code, c.slug as country_slug,
+                  sr.id as subregion_id, sr.name as subregion_name, sr.slug as subregion_slug
+           FROM spots s
+           JOIN countries c ON s.country_id = c.id
+           LEFT JOIN subregions sr ON s.subregion_id = sr.id
+           WHERE s.slug = $1 AND c.slug = $2 AND s.subregion_id IS NULL"#
+    } else {
+        r#"SELECT s.id, s.name, s.slug, s.latitude, s.longitude, s.elevation_meters,
+                  s.rock_type::text as rock_type, s.exposure::text as exposure,
+                  s.description, s.created_at, s.climbing_types,
+                  c.id as country_id, c.name as country_name, c.code as country_code, c.slug as country_slug,
+                  sr.id as subregion_id, sr.name as subregion_name, sr.slug as subregion_slug
+           FROM spots s
+           JOIN countries c ON s.country_id = c.id
+           LEFT JOIN subregions sr ON s.subregion_id = sr.id
+           WHERE s.slug = $1 AND c.slug = $2 AND sr.slug = $3"#
+    };
+
+    let mut q = sqlx::query_as::<_, SpotRow>(sql)
+        .bind(&spot_slug).bind(&country_slug);
+    if !no_region { q = q.bind(&region_slug); }
+
+    let spot = q.fetch_optional(&state.db).await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "Spot not found".to_string()))?;
+
+    Ok(Json(SpotDetail {
+        id: spot.id, name: spot.name, slug: spot.slug,
+        latitude: spot.latitude, longitude: spot.longitude,
+        elevation_meters: spot.elevation_meters,
+        rock_type: spot.rock_type.unwrap_or_else(|| "unknown".to_string()),
+        exposure: spot.exposure.unwrap_or_else(|| "unknown".to_string()),
+        description: spot.description, climbing_types: spot.climbing_types,
+        country: CountryInfo { id: spot.country_id, name: spot.country_name, code: spot.country_code, slug: spot.country_slug },
+        subregion: match (spot.subregion_id, spot.subregion_name, spot.subregion_slug) {
+            (Some(id), Some(name), Some(slug)) => Some(SubregionInfo { id, name, slug }),
+            _ => None,
+        },
+        created_at: spot.created_at,
+    }))
 }
 
 #[derive(Deserialize)]
@@ -574,6 +802,71 @@ struct ConditionReport {
     observed_at: DateTime<Utc>,
     status: String,
     reported_at: DateTime<Utc>,
+}
+
+
+async fn submit_report_by_slug_handler(
+    State(state): State<AppState>,
+    Path((country_slug, region_slug, spot_slug)): Path<(String, String, String)>,
+    Json(body): Json<ReportConditionRequest>,
+) -> Result<(StatusCode, Json<ConditionReport>), (StatusCode, String)> {
+    let no_region = region_slug == "-";
+
+    let spot_id: sqlx::types::Uuid = if no_region {
+        sqlx::query_scalar(
+            r#"SELECT s.id FROM spots s
+               JOIN countries c ON c.id = s.country_id
+               WHERE c.slug = $1 AND s.slug = $2 AND s.subregion_id IS NULL"#
+        )
+        .bind(&country_slug)
+        .bind(&spot_slug)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .ok_or((StatusCode::NOT_FOUND, "Spot not found".to_string()))?
+    } else {
+        sqlx::query_scalar(
+            r#"SELECT s.id FROM spots s
+               JOIN countries c ON c.id = s.country_id
+               JOIN subregions sr ON sr.id = s.subregion_id
+               WHERE c.slug = $1 AND sr.slug = $2 AND s.slug = $3"#
+        )
+        .bind(&country_slug)
+        .bind(&region_slug)
+        .bind(&spot_slug)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .ok_or((StatusCode::NOT_FOUND, "Spot not found".to_string()))?
+    };
+
+    if body.observed_at >= Utc::now() {
+        return Err((StatusCode::BAD_REQUEST, "observed_at must be in the past".to_string()));
+    }
+
+    let valid_statuses = ["dry", "some_wet", "mostly_wet", "wet"];
+    if !valid_statuses.contains(&body.status.as_str()) {
+        return Err((StatusCode::BAD_REQUEST, "status must be one of: dry, some_wet, mostly_wet, wet".to_string()));
+    }
+
+    let report = sqlx::query_as::<_, ConditionReport>(
+        r#"
+        INSERT INTO condition_reports (spot_id, observed_at, status)
+        VALUES ($1, $2, $3)
+        RETURNING id, spot_id, observed_at, status, reported_at
+        "#
+    )
+    .bind(spot_id)
+    .bind(body.observed_at)
+    .bind(&body.status)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| {
+        tracing::error!("Database error: {:?}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
+    })?;
+
+    Ok((StatusCode::CREATED, Json(report)))
 }
 
 async fn submit_report_handler(
