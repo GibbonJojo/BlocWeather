@@ -805,6 +805,36 @@ struct ConditionReport {
 }
 
 
+async fn do_insert_report(
+    db: &sqlx::PgPool,
+    spot_id: sqlx::types::Uuid,
+    body: &ReportConditionRequest,
+) -> Result<ConditionReport, (StatusCode, String)> {
+    if body.observed_at >= Utc::now() {
+        return Err((StatusCode::BAD_REQUEST, "observed_at must be in the past".to_string()));
+    }
+    let valid_statuses = ["dry", "some_wet", "mostly_wet", "wet"];
+    if !valid_statuses.contains(&body.status.as_str()) {
+        return Err((StatusCode::BAD_REQUEST, "status must be one of: dry, some_wet, mostly_wet, wet".to_string()));
+    }
+    sqlx::query_as::<_, ConditionReport>(
+        r#"
+        INSERT INTO condition_reports (spot_id, observed_at, status)
+        VALUES ($1, $2, $3)
+        RETURNING id, spot_id, observed_at, status, reported_at
+        "#
+    )
+    .bind(spot_id)
+    .bind(body.observed_at)
+    .bind(&body.status)
+    .fetch_one(db)
+    .await
+    .map_err(|e| {
+        tracing::error!("Database error: {:?}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
+    })
+}
+
 async fn submit_report_by_slug_handler(
     State(state): State<AppState>,
     Path((country_slug, region_slug, spot_slug)): Path<(String, String, String)>,
@@ -840,33 +870,7 @@ async fn submit_report_by_slug_handler(
         .ok_or((StatusCode::NOT_FOUND, "Spot not found".to_string()))?
     };
 
-    if body.observed_at >= Utc::now() {
-        return Err((StatusCode::BAD_REQUEST, "observed_at must be in the past".to_string()));
-    }
-
-    let valid_statuses = ["dry", "some_wet", "mostly_wet", "wet"];
-    if !valid_statuses.contains(&body.status.as_str()) {
-        return Err((StatusCode::BAD_REQUEST, "status must be one of: dry, some_wet, mostly_wet, wet".to_string()));
-    }
-
-    let report = sqlx::query_as::<_, ConditionReport>(
-        r#"
-        INSERT INTO condition_reports (spot_id, observed_at, status)
-        VALUES ($1, $2, $3)
-        RETURNING id, spot_id, observed_at, status, reported_at
-        "#
-    )
-    .bind(spot_id)
-    .bind(body.observed_at)
-    .bind(&body.status)
-    .fetch_one(&state.db)
-    .await
-    .map_err(|e| {
-        tracing::error!("Database error: {:?}", e);
-        (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
-    })?;
-
-    Ok((StatusCode::CREATED, Json(report)))
+    do_insert_report(&state.db, spot_id, &body).await.map(|r| (StatusCode::CREATED, Json(r)))
 }
 
 async fn submit_report_handler(
@@ -874,33 +878,7 @@ async fn submit_report_handler(
     Path(spot_id): Path<sqlx::types::Uuid>,
     Json(body): Json<ReportConditionRequest>,
 ) -> Result<(StatusCode, Json<ConditionReport>), (StatusCode, String)> {
-    if body.observed_at >= Utc::now() {
-        return Err((StatusCode::BAD_REQUEST, "observed_at must be in the past".to_string()));
-    }
-
-    let valid_statuses = ["dry", "some_wet", "mostly_wet", "wet"];
-    if !valid_statuses.contains(&body.status.as_str()) {
-        return Err((StatusCode::BAD_REQUEST, "status must be one of: dry, some_wet, mostly_wet, wet".to_string()));
-    }
-
-    let report = sqlx::query_as::<_, ConditionReport>(
-        r#"
-        INSERT INTO condition_reports (spot_id, observed_at, status)
-        VALUES ($1, $2, $3)
-        RETURNING id, spot_id, observed_at, status, reported_at
-        "#
-    )
-    .bind(spot_id)
-    .bind(body.observed_at)
-    .bind(&body.status)
-    .fetch_one(&state.db)
-    .await
-    .map_err(|e| {
-        tracing::error!("Database error: {:?}", e);
-        (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
-    })?;
-
-    Ok((StatusCode::CREATED, Json(report)))
+    do_insert_report(&state.db, spot_id, &body).await.map(|r| (StatusCode::CREATED, Json(r)))
 }
 
 #[derive(Deserialize)]
@@ -914,6 +892,7 @@ struct SearchResult {
     id: String,      // UUID as text
     name: String,
     context: String, // e.g. "Rheinland-Pfalz, Germany" for a spot
+    url: String,     // slug-based path, e.g. "/germany/nordrhein-westfalen/hohenfels"
 }
 
 async fn search_handler(
@@ -934,7 +913,8 @@ async fn search_handler(
                 'spot'::text       AS kind,
                 s.id::text         AS id,
                 s.name             AS name,
-                COALESCE(sr.name || ', ', '') || c.name AS context
+                COALESCE(sr.name || ', ', '') || c.name AS context,
+                '/' || c.slug || '/' || COALESCE(sr.slug, '-') || '/' || s.slug AS url
             FROM spots s
             JOIN countries c ON s.country_id = c.id
             LEFT JOIN subregions sr ON s.subregion_id = sr.id
@@ -948,7 +928,8 @@ async fn search_handler(
                 'subregion'::text  AS kind,
                 sr.id::text        AS id,
                 sr.name            AS name,
-                c.name             AS context
+                c.name             AS context,
+                '/' || c.slug || '/' || sr.slug AS url
             FROM subregions sr
             JOIN countries c ON sr.country_id = c.id
             WHERE sr.name ILIKE $2
@@ -961,7 +942,8 @@ async fn search_handler(
                 'country'::text    AS kind,
                 c.id::text         AS id,
                 c.name             AS name,
-                ''::text           AS context
+                ''::text           AS context,
+                '/' || c.slug      AS url
             FROM countries c
             WHERE c.name ILIKE $3
             ORDER BY c.name
