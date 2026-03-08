@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api/client';
-	import type { SearchResult, SearchResultKind } from '$lib/api/client';
+	import type { SearchResult } from '$lib/api/client';
 
 	let query = '';
 	let results: SearchResult[] = [];
@@ -9,12 +9,6 @@
 	let timer: ReturnType<typeof setTimeout>;
 	let inputEl: HTMLInputElement;
 	let activeIndex = -1;
-
-	const HREF: Record<SearchResultKind, (id: string) => string> = {
-		spot:      (id) => `/spots/${id}`,
-		subregion: (id) => `/subregions/${id}`,
-		country:   (id) => `/countries/${id}`,
-	};
 
 	const KIND_LABEL: Record<SearchResultKind, string> = {
 		spot:      'Spot',
@@ -47,7 +41,7 @@
 		query = '';
 		results = [];
 		open = false;
-		goto(HREF[result.kind](result.id));
+		goto(result.url);
 	}
 
 	function onKeydown(e: KeyboardEvent) {

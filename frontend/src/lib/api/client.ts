@@ -105,6 +105,7 @@ export interface SearchResult {
 	id: string;
 	name: string;
 	context: string;
+	url: string;
 }
 
 export type ConditionStatus = 'dry' | 'some_wet' | 'mostly_wet' | 'wet';
@@ -217,18 +218,6 @@ class ApiClient {
 
 	async getCountries(): Promise<Country[]> {
 		return this.request<Country[]>('/countries');
-	}
-
-	async getSubregions(countryId: string): Promise<Subregion[]> {
-		return this.request<Subregion[]>(`/countries/${countryId}/subregions`);
-	}
-
-	async getSpotsBySubregion(subregionId: string): Promise<Spot[]> {
-		return this.request<Spot[]>(`/subregions/${subregionId}/spots`);
-	}
-
-	async getSpot(spotId: string): Promise<Spot> {
-		return this.request<Spot>(`/spots/${spotId}`);
 	}
 
 	async getSpotWeather(spotId: string, start?: string, end?: string): Promise<WeatherData[]> {
