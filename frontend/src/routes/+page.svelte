@@ -15,24 +15,48 @@
 	// ── Map timestamp picker ───────────────────────────────────────────────
 	const _pad = (n: number) => String(n).padStart(2, '0');
 
-	function dateStr(d: Date): string {
-		return `${d.getFullYear()}-${_pad(d.getMonth() + 1)}-${_pad(d.getDate())}`;
-	}
+	const SLIDER_RANGE = 5 * 24; // ±5 days in hours = 240 steps
+	const _epoch = new Date();
+	_epoch.setMinutes(0, 0, 0);
 
-	const _now = new Date();
-	let mapDate = dateStr(_now);
-	let mapHour = _now.getHours();
+	const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const _tzOffsetMin = -new Date().getTimezoneOffset();
+	const _tzSign = _tzOffsetMin >= 0 ? '+' : '-';
+	const _tzHours = Math.floor(Math.abs(_tzOffsetMin) / 60);
+	const _tzMins = Math.abs(_tzOffsetMin) % 60;
+	const userTzOffset = _tzMins > 0
+		? `${_tzSign}${_tzHours}:${_pad(_tzMins)}`
+		: `${_tzSign}${_tzHours}`;
 
-	const mapMinDate = dateStr(new Date(_now.getTime() - 5 * 864e5));
-	const mapMaxDate = dateStr(new Date(_now.getTime() + 5 * 864e5));
+	// sliderValue = offset in hours from "now" rounded to hour, range [-120, +120]
+	let sliderValue = 0;
 
-	// Combine date + hour into ISO for the API
-	$: mapTimestampISO = new Date(`${mapDate}T${_pad(mapHour)}:00:00`).toISOString();
+	$: sliderDate = new Date(_epoch.getTime() + sliderValue * 36e5);
+	$: mapTimestampISO = sliderDate.toISOString();
+
+	// Day label shown above slider
+	$: sliderDayLabel = sliderDate.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+	$: sliderTimeLabel = `${_pad(sliderDate.getHours())}:00`;
+	$: sliderIsNow = sliderValue === 0;
+
+	// Compute tick positions for midnight boundaries within the slider range
+	// Each tick = offset in hours from -SLIDER_RANGE to +SLIDER_RANGE
+	const dayTicks: { offset: number; label: string }[] = (() => {
+		const ticks = [];
+		for (let h = -SLIDER_RANGE; h <= SLIDER_RANGE; h++) {
+			const d = new Date(_epoch.getTime() + h * 36e5);
+			if (d.getHours() === 0) {
+				ticks.push({
+					offset: h,
+					label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+				});
+			}
+		}
+		return ticks;
+	})();
 
 	function resetToNow() {
-		const n = new Date();
-		mapDate = dateStr(n);
-		mapHour = n.getHours();
+		sliderValue = 0;
 	}
 
 	// Suggest area modal
@@ -119,34 +143,55 @@
 						</span>
 					{/each}
 				</div>
-				<!-- Timestamp picker -->
-				<div class="flex items-center gap-2 ml-auto">
-					<label class="text-xs text-gray-500 whitespace-nowrap">Show at</label>
-					<input
-						type="date"
-						min={mapMinDate}
-						max={mapMaxDate}
-						bind:value={mapDate}
-						class="text-xs border border-gray-300 rounded px-2 py-1 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-					/>
-					<select
-						bind:value={mapHour}
-						class="text-xs border border-gray-300 rounded px-2 py-1 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-					>
-						{#each Array.from({length: 24}, (_, i) => i) as h}
-							<option value={h}>{_pad(h)}:00</option>
-						{/each}
-					</select>
-					<button
-						on:click={resetToNow}
-						class="text-xs text-blue-600 hover:underline whitespace-nowrap cursor-pointer"
-					>
-						Now
-					</button>
-				</div>
 			</div>
+
 			<div class="h-[460px] p-4">
 				<SpotMap timestamp={mapTimestampISO} />
+			</div>
+
+			<!-- Timestamp slider -->
+			<div class="px-4 pb-3 pt-1 border-t border-gray-100 space-y-1">
+				<!-- Current time label -->
+				<div class="flex items-center justify-between text-xs text-gray-600">
+					<span class="font-medium">
+						{sliderDayLabel}
+						<span class="tabular-nums ml-1">{sliderTimeLabel}</span>
+						{#if sliderIsNow}<span class="ml-1 text-blue-600 font-semibold">· Now</span>{/if}
+					</span>
+					<div class="flex items-center gap-3">
+						<span class="text-gray-400">Timezone: {userTz} ({userTzOffset})</span>
+						<button
+							on:click={resetToNow}
+							class="text-blue-600 hover:underline cursor-pointer"
+							style="visibility: {sliderIsNow ? 'hidden' : 'visible'}"
+						>Reset to now</button>
+					</div>
+				</div>
+
+				<!-- Slider + day tick marks -->
+				<div class="relative">
+					<input
+						type="range"
+						min={-SLIDER_RANGE}
+						max={SLIDER_RANGE}
+						step="1"
+						bind:value={sliderValue}
+						class="w-full accent-blue-600 cursor-pointer"
+					/>
+					<!-- Day boundary ticks -->
+					<div class="relative w-full h-4">
+						{#each dayTicks as tick}
+							{@const pct = ((tick.offset + SLIDER_RANGE) / (SLIDER_RANGE * 2)) * 100}
+							<div
+								class="absolute flex flex-col items-center"
+								style="left: {pct}%; transform: translateX(-50%)"
+							>
+								<div class="w-px h-1.5 bg-gray-300"></div>
+								<span class="text-[10px] text-gray-400 whitespace-nowrap">{tick.label}</span>
+							</div>
+						{/each}
+					</div>
+				</div>
 			</div>
 		{/if}
 	</div>
