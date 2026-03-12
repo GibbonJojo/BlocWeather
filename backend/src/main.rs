@@ -513,10 +513,8 @@ async fn get_spot_conditions_handler(
 fn wetness_class(min_sat: f32, max_sat: f32) -> &'static str {
     if max_sat < 0.02 {
         "dry"
-    } else if min_sat < 0.02 {
-        "mostly_dry"
     } else if max_sat < 0.4 {
-        "some_wet"
+        if min_sat < 0.02 { "mostly_dry" } else { "some_wet" }
     } else if max_sat < 0.7 {
         "mostly_wet"
     } else {

@@ -10,7 +10,7 @@
 	const CLASS_COLOR: Record<WetnessClass | 'unknown', string> = {
 		dry:        '#16a34a',
 		mostly_dry: '#65a30d',
-		some_wet:   '#d97706',
+		some_wet:   '#7dd3fc',
 		mostly_wet: '#2563eb',
 		wet:        '#1e3a8a',
 		unknown:    '#9ca3af',

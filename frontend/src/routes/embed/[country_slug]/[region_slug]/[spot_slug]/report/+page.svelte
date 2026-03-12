@@ -14,14 +14,14 @@
 
 	const STATUS_STYLES: Record<string, string> = {
 		dry:        'border-green-500 text-green-700 bg-green-50',
-		some_wet:   'border-amber-400 text-amber-700 bg-amber-50',
+		some_wet:   'border-sky-300 text-sky-700 bg-sky-50',
 		mostly_wet: 'border-orange-500 text-orange-700 bg-orange-50',
 		wet:        'border-blue-500 text-blue-700 bg-blue-50',
 	};
 
 	const STATUS_ACTIVE: Record<string, string> = {
 		dry:        'bg-green-500 text-white border-green-500',
-		some_wet:   'bg-amber-400 text-white border-amber-400',
+		some_wet:   'bg-sky-400 text-white border-sky-400',
 		mostly_wet: 'bg-orange-500 text-white border-orange-500',
 		wet:        'bg-blue-500 text-white border-blue-500',
 	};

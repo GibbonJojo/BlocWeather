@@ -136,7 +136,7 @@
 			<div class="px-4 pb-2 pt-1 flex flex-wrap items-center gap-3 border-b border-gray-100">
 				<!-- Legend -->
 				<div class="flex items-center gap-2 flex-wrap text-xs text-gray-600">
-					{#each [['#16a34a','Dry'],['#65a30d','Mostly dry'],['#d97706','Some wet'],['#2563eb','Mostly wet'],['#1e3a8a','Wet'],['#9ca3af','No data']] as [color, label]}
+					{#each [['#16a34a','Dry'],['#65a30d','Mostly dry'],['#7dd3fc','Some wet'],['#2563eb','Mostly wet'],['#1e3a8a','Wet'],['#9ca3af','No data']] as [color, label]}
 						<span class="flex items-center gap-1">
 							<span style="background:{color}" class="inline-block w-3 h-3 rounded-full"></span>
 							{label}
