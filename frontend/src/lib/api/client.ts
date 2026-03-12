@@ -65,15 +65,26 @@ export interface SubregionData {
 	spots: SpotListItem[];
 }
 
+export type WetnessClass = 'dry' | 'mostly_dry' | 'some_wet' | 'mostly_wet' | 'wet';
+
 export interface MapSpot {
 	id: string;
 	name: string;
 	latitude: number;
 	longitude: number;
-	saturation?: number; // max_saturation 0–1 for map coloring
+	saturation?: number; // max_saturation 0–1
+	classification?: WetnessClass;
 	country_slug: string;
 	region_slug: string;
 	spot_slug: string;
+}
+
+export interface SpotClassification {
+	spot_id: string;
+	timestamp: string;
+	classification: WetnessClass | null;
+	min_saturation: number | null;
+	max_saturation: number | null;
 }
 
 export interface WeatherData {
@@ -115,6 +126,7 @@ export interface ConditionReport {
 	spot_id: string;
 	observed_at: string;
 	status: ConditionStatus;
+	comment?: string;
 	reported_at: string;
 }
 
@@ -158,6 +170,7 @@ export interface AdminReport {
 	spot_name: string;
 	observed_at: string;
 	status: string;
+	comment?: string;
 	reported_at: string;
 	calc_min_saturation?: number;
 	calc_max_saturation?: number;
@@ -236,14 +249,20 @@ class ApiClient {
 		return this.request<ClimbingCondition[]>(`/spots/${spotId}/conditions${query}`);
 	}
 
-	async getMapSpots(bounds: { swLat: number; swLon: number; neLat: number; neLon: number }): Promise<MapSpot[]> {
+	async getMapSpots(bounds: { swLat: number; swLon: number; neLat: number; neLon: number }, timestamp?: string): Promise<MapSpot[]> {
 		const params = new URLSearchParams({
 			sw_lat: bounds.swLat.toString(),
 			sw_lon: bounds.swLon.toString(),
 			ne_lat: bounds.neLat.toString(),
 			ne_lon: bounds.neLon.toString(),
 		});
+		if (timestamp) params.set('timestamp', timestamp);
 		return this.request<MapSpot[]>(`/spots/map?${params.toString()}`);
+	}
+
+	async getSpotClassification(countrySlug: string, regionSlug: string, spotSlug: string, timestamp?: string): Promise<SpotClassification> {
+		const params = timestamp ? `?timestamp=${encodeURIComponent(timestamp)}` : '';
+		return this.request<SpotClassification>(`/data/${countrySlug}/${regionSlug}/${spotSlug}/classification${params}`);
 	}
 
 	async search(q: string): Promise<SearchResult[]> {
@@ -263,10 +282,10 @@ class ApiClient {
 		return this.request<Spot>(`/data/${countrySlug}/${regionSlug}/${spotSlug}`);
 	}
 
-	async submitReport(spotId: string, observedAt: string, status: ConditionStatus): Promise<ConditionReport> {
+	async submitReport(spotId: string, observedAt: string, status: ConditionStatus, comment?: string): Promise<ConditionReport> {
 		return this.request<ConditionReport>(`/spots/${spotId}/reports`, {
 			method: 'POST',
-			body: JSON.stringify({ observed_at: observedAt, status })
+			body: JSON.stringify({ observed_at: observedAt, status, comment: comment || undefined })
 		});
 	}
 

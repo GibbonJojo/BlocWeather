@@ -28,6 +28,7 @@
 
 	let selectedStatus = '';
 	let observedTime = '';
+	let comment = '';
 	let submitting = false;
 	let success = false;
 	let submitError = '';
@@ -49,7 +50,7 @@
 		submitting = true;
 		submitError = '';
 		try {
-			await api.submitReport(data.spot.id, new Date(observedTime).toISOString(), selectedStatus as ConditionStatus);
+			await api.submitReport(data.spot.id, new Date(observedTime).toISOString(), selectedStatus as ConditionStatus, comment);
 			success = true;
 		} catch {
 			submitError = 'Could not submit. Please try again.';
@@ -109,6 +110,18 @@
 						</button>
 					{/each}
 				</div>
+			</div>
+
+			<div class="space-y-1.5">
+				<label for="comment" class="block text-xs font-medium text-gray-600">Comment <span class="text-gray-400">(optional)</span></label>
+				<textarea
+					id="comment"
+					rows="2"
+					maxlength="500"
+					placeholder="e.g. north face still damp"
+					bind:value={comment}
+					class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+				></textarea>
 			</div>
 
 			{#if submitError}

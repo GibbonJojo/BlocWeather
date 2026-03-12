@@ -12,6 +12,29 @@
 		mapExpanded = !mapExpanded;
 	}
 
+	// ── Map timestamp picker ───────────────────────────────────────────────
+	const _pad = (n: number) => String(n).padStart(2, '0');
+
+	function dateStr(d: Date): string {
+		return `${d.getFullYear()}-${_pad(d.getMonth() + 1)}-${_pad(d.getDate())}`;
+	}
+
+	const _now = new Date();
+	let mapDate = dateStr(_now);
+	let mapHour = _now.getHours();
+
+	const mapMinDate = dateStr(new Date(_now.getTime() - 5 * 864e5));
+	const mapMaxDate = dateStr(new Date(_now.getTime() + 5 * 864e5));
+
+	// Combine date + hour into ISO for the API
+	$: mapTimestampISO = new Date(`${mapDate}T${_pad(mapHour)}:00:00`).toISOString();
+
+	function resetToNow() {
+		const n = new Date();
+		mapDate = dateStr(n);
+		mapHour = n.getHours();
+	}
+
 	// Suggest area modal
 	let showSuggestModal = false;
 	let suggestName = '';
@@ -86,8 +109,44 @@
 		</button>
 
 		{#if mapExpanded}
-			<div class="h-[500px] p-4">
-				<SpotMap />
+			<div class="px-4 pb-2 pt-1 flex flex-wrap items-center gap-3 border-b border-gray-100">
+				<!-- Legend -->
+				<div class="flex items-center gap-2 flex-wrap text-xs text-gray-600">
+					{#each [['#16a34a','Dry'],['#65a30d','Mostly dry'],['#d97706','Some wet'],['#2563eb','Mostly wet'],['#1e3a8a','Wet'],['#9ca3af','No data']] as [color, label]}
+						<span class="flex items-center gap-1">
+							<span style="background:{color}" class="inline-block w-3 h-3 rounded-full"></span>
+							{label}
+						</span>
+					{/each}
+				</div>
+				<!-- Timestamp picker -->
+				<div class="flex items-center gap-2 ml-auto">
+					<label class="text-xs text-gray-500 whitespace-nowrap">Show at</label>
+					<input
+						type="date"
+						min={mapMinDate}
+						max={mapMaxDate}
+						bind:value={mapDate}
+						class="text-xs border border-gray-300 rounded px-2 py-1 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+					/>
+					<select
+						bind:value={mapHour}
+						class="text-xs border border-gray-300 rounded px-2 py-1 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+					>
+						{#each Array.from({length: 24}, (_, i) => i) as h}
+							<option value={h}>{_pad(h)}:00</option>
+						{/each}
+					</select>
+					<button
+						on:click={resetToNow}
+						class="text-xs text-blue-600 hover:underline whitespace-nowrap cursor-pointer"
+					>
+						Now
+					</button>
+				</div>
+			</div>
+			<div class="h-[460px] p-4">
+				<SpotMap timestamp={mapTimestampISO} />
 			</div>
 		{/if}
 	</div>

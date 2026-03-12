@@ -124,6 +124,7 @@ async fn main() {
         .route("/api/v1/spots/:spot_id", get(get_spot_handler))
         .route("/api/v1/spots/:spot_id/weather", get(get_spot_weather_handler))
         .route("/api/v1/spots/:spot_id/conditions", get(get_spot_conditions_handler))
+        .route("/api/v1/spots/:spot_id/classification", get(get_spot_classification_handler))
         .route("/api/v1/spots/map", get(get_map_spots_handler))
         .route("/api/v1/spots/:spot_id/reports", post(submit_report_handler))
         .route("/api/v1/search", get(search_handler))
@@ -132,7 +133,8 @@ async fn main() {
         .route("/api/v1/data/:country", get(data_country_handler))
         .route("/api/v1/data/:country/:region", get(data_region_handler))
         .route("/api/v1/data/:country/:region/:spot", get(data_spot_handler))
-        .route("/api/v1/data/:country/:region/:spot/reports", post(submit_report_by_slug_handler));
+        .route("/api/v1/data/:country/:region/:spot/reports", post(submit_report_by_slug_handler))
+        .route("/api/v1/data/:country/:region/:spot/classification", get(get_spot_classification_by_slug_handler));
 
     // Combine routes
     let app = public_routes
@@ -499,13 +501,39 @@ async fn get_spot_conditions_handler(
     Ok(Json(conditions))
 }
 
-// Query parameters for map endpoint
+// ── Wetness classification ──────────────────────────────────────────────────
+
+/// Classify rock wetness based on min/max saturation.
+///
+/// - `dry`:        max < 0.02  (dry even in shaded worst-case)
+/// - `mostly_dry`: min < 0.02, max >= 0.02  (sunny side dry, shaded side damp)
+/// - `some_wet`:   min >= 0.02, max < 0.4
+/// - `mostly_wet`: min >= 0.02, max 0.4–0.7
+/// - `wet`:        min >= 0.02, max >= 0.7
+fn wetness_class(min_sat: f32, max_sat: f32) -> &'static str {
+    if max_sat < 0.02 {
+        "dry"
+    } else if min_sat < 0.02 {
+        "mostly_dry"
+    } else if max_sat < 0.4 {
+        "some_wet"
+    } else if max_sat < 0.7 {
+        "mostly_wet"
+    } else {
+        "wet"
+    }
+}
+
+// ── Map endpoint ────────────────────────────────────────────────────────────
+
 #[derive(Deserialize)]
 struct MapBoundsQuery {
     sw_lat: f64,
     sw_lon: f64,
     ne_lat: f64,
     ne_lon: f64,
+    /// ISO 8601 timestamp; defaults to NOW() when absent.
+    timestamp: Option<DateTime<Utc>>,
 }
 
 #[derive(Serialize)]
@@ -515,6 +543,7 @@ struct MapSpot {
     latitude: f64,
     longitude: f64,
     saturation: Option<f32>,
+    classification: Option<String>,
     country_slug: String,
     region_slug: String,
     spot_slug: String,
@@ -530,11 +559,14 @@ async fn get_map_spots_handler(
         name: String,
         latitude: f64,
         longitude: f64,
-        saturation: Option<f32>,
+        min_saturation: Option<f32>,
+        max_saturation: Option<f32>,
         country_slug: String,
         region_slug: String,
         spot_slug: String,
     }
+
+    let ts = bounds.timestamp.unwrap_or_else(Utc::now);
 
     let spots = sqlx::query_as::<_, MapSpotRow>(
         r#"
@@ -543,7 +575,8 @@ async fn get_map_spots_handler(
             s.name,
             s.latitude,
             s.longitude,
-            cc.max_saturation as saturation,
+            cc.min_saturation,
+            cc.max_saturation,
             c.slug as country_slug,
             COALESCE(sr.slug, '-') as region_slug,
             s.slug as spot_slug
@@ -551,12 +584,12 @@ async fn get_map_spots_handler(
         LEFT JOIN countries c ON c.id = s.country_id
         LEFT JOIN subregions sr ON sr.id = s.subregion_id
         LEFT JOIN LATERAL (
-            SELECT max_saturation
+            SELECT min_saturation, max_saturation
             FROM climbing_conditions
             WHERE spot_id = s.id
-              AND timestamp >= NOW() - INTERVAL '1 hour'
-              AND timestamp <= NOW() + INTERVAL '1 hour'
-            ORDER BY ABS(EXTRACT(EPOCH FROM (timestamp - NOW())))
+              AND timestamp >= $5 - INTERVAL '1 hour'
+              AND timestamp <= $5 + INTERVAL '1 hour'
+            ORDER BY ABS(EXTRACT(EPOCH FROM (timestamp - $5)))
             LIMIT 1
         ) cc ON true
         WHERE s.latitude BETWEEN $1 AND $3
@@ -567,6 +600,7 @@ async fn get_map_spots_handler(
     .bind(bounds.sw_lon)
     .bind(bounds.ne_lat)
     .bind(bounds.ne_lon)
+    .bind(ts)
     .fetch_all(&state.db)
     .await
     .map_err(|e| {
@@ -576,19 +610,155 @@ async fn get_map_spots_handler(
 
     let result: Vec<MapSpot> = spots
         .into_iter()
-        .map(|row| MapSpot {
-            id: row.id,
-            name: row.name,
-            latitude: row.latitude,
-            longitude: row.longitude,
-            saturation: row.saturation,
-            country_slug: row.country_slug,
-            region_slug: row.region_slug,
-            spot_slug: row.spot_slug,
+        .map(|row| {
+            let classification = match (row.min_saturation, row.max_saturation) {
+                (Some(min), Some(max)) => Some(wetness_class(min, max).to_string()),
+                _ => None,
+            };
+            MapSpot {
+                id: row.id,
+                name: row.name,
+                latitude: row.latitude,
+                longitude: row.longitude,
+                saturation: row.max_saturation,
+                classification,
+                country_slug: row.country_slug,
+                region_slug: row.region_slug,
+                spot_slug: row.spot_slug,
+            }
         })
         .collect();
 
     Ok(Json(result))
+}
+
+// ── Per-spot classification endpoint ────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct ClassificationQuery {
+    timestamp: Option<DateTime<Utc>>,
+}
+
+#[derive(Serialize)]
+struct SpotClassification {
+    spot_id: sqlx::types::Uuid,
+    timestamp: DateTime<Utc>,
+    classification: Option<String>,
+    min_saturation: Option<f32>,
+    max_saturation: Option<f32>,
+}
+
+async fn get_spot_classification_handler(
+    State(state): State<AppState>,
+    Path(spot_id): Path<sqlx::types::Uuid>,
+    Query(q): Query<ClassificationQuery>,
+) -> Result<Json<SpotClassification>, (StatusCode, String)> {
+    let ts = q.timestamp.unwrap_or_else(Utc::now);
+
+    #[derive(sqlx::FromRow)]
+    struct Row { min_saturation: f32, max_saturation: f32 }
+
+    let row = sqlx::query_as::<_, Row>(
+        r#"
+        SELECT min_saturation, max_saturation
+        FROM climbing_conditions
+        WHERE spot_id = $1
+          AND timestamp >= $2 - INTERVAL '1 hour'
+          AND timestamp <= $2 + INTERVAL '1 hour'
+        ORDER BY ABS(EXTRACT(EPOCH FROM (timestamp - $2)))
+        LIMIT 1
+        "#
+    )
+    .bind(spot_id)
+    .bind(ts)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        tracing::error!("Database error: {:?}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
+    })?;
+
+    let (classification, min_saturation, max_saturation) = match row {
+        Some(r) => (
+            Some(wetness_class(r.min_saturation, r.max_saturation).to_string()),
+            Some(r.min_saturation),
+            Some(r.max_saturation),
+        ),
+        None => (None, None, None),
+    };
+
+    Ok(Json(SpotClassification { spot_id, timestamp: ts, classification, min_saturation, max_saturation }))
+}
+
+async fn get_spot_classification_by_slug_handler(
+    State(state): State<AppState>,
+    Path((country_slug, region_slug, spot_slug)): Path<(String, String, String)>,
+    Query(q): Query<ClassificationQuery>,
+) -> Result<Json<SpotClassification>, (StatusCode, String)> {
+    let ts = q.timestamp.unwrap_or_else(Utc::now);
+    let no_region = region_slug == "-";
+
+    let spot_id: sqlx::types::Uuid = if no_region {
+        sqlx::query_scalar(
+            r#"SELECT s.id FROM spots s
+               JOIN countries c ON c.id = s.country_id
+               WHERE c.slug = $1 AND s.slug = $2 AND s.subregion_id IS NULL"#
+        )
+        .bind(&country_slug)
+        .bind(&spot_slug)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .ok_or((StatusCode::NOT_FOUND, "Spot not found".to_string()))?
+    } else {
+        sqlx::query_scalar(
+            r#"SELECT s.id FROM spots s
+               JOIN countries c ON c.id = s.country_id
+               JOIN subregions sr ON sr.id = s.subregion_id
+               WHERE c.slug = $1 AND sr.slug = $2 AND s.slug = $3"#
+        )
+        .bind(&country_slug)
+        .bind(&region_slug)
+        .bind(&spot_slug)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .ok_or((StatusCode::NOT_FOUND, "Spot not found".to_string()))?
+    };
+
+    #[derive(sqlx::FromRow)]
+    struct Row { min_saturation: f32, max_saturation: f32 }
+
+    let row = sqlx::query_as::<_, Row>(
+        r#"
+        SELECT min_saturation, max_saturation
+        FROM climbing_conditions
+        WHERE spot_id = $1
+          AND timestamp >= $2 - INTERVAL '1 hour'
+          AND timestamp <= $2 + INTERVAL '1 hour'
+        ORDER BY ABS(EXTRACT(EPOCH FROM (timestamp - $2)))
+        LIMIT 1
+        "#
+    )
+    .bind(spot_id)
+    .bind(ts)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        tracing::error!("Database error: {:?}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
+    })?;
+
+    let (classification, min_saturation, max_saturation) = match row {
+        Some(r) => (
+            Some(wetness_class(r.min_saturation, r.max_saturation).to_string()),
+            Some(r.min_saturation),
+            Some(r.max_saturation),
+        ),
+        None => (None, None, None),
+    };
+
+    Ok(Json(SpotClassification { spot_id, timestamp: ts, classification, min_saturation, max_saturation }))
 }
 
 
@@ -793,6 +963,7 @@ async fn data_spot_handler(
 struct ReportConditionRequest {
     observed_at: DateTime<Utc>,
     status: String,
+    comment: Option<String>,
 }
 
 #[derive(Serialize, sqlx::FromRow)]
@@ -801,6 +972,7 @@ struct ConditionReport {
     spot_id: sqlx::types::Uuid,
     observed_at: DateTime<Utc>,
     status: String,
+    comment: Option<String>,
     reported_at: DateTime<Utc>,
 }
 
@@ -817,16 +989,20 @@ async fn do_insert_report(
     if !valid_statuses.contains(&body.status.as_str()) {
         return Err((StatusCode::BAD_REQUEST, "status must be one of: dry, some_wet, mostly_wet, wet".to_string()));
     }
+    let comment = body.comment.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty()).map(|s| {
+        if s.len() > 500 { &s[..500] } else { s }
+    }).map(String::from);
     sqlx::query_as::<_, ConditionReport>(
         r#"
-        INSERT INTO condition_reports (spot_id, observed_at, status)
-        VALUES ($1, $2, $3)
-        RETURNING id, spot_id, observed_at, status, reported_at
+        INSERT INTO condition_reports (spot_id, observed_at, status, comment)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, spot_id, observed_at, status, comment, reported_at
         "#
     )
     .bind(spot_id)
     .bind(body.observed_at)
     .bind(&body.status)
+    .bind(comment)
     .fetch_one(db)
     .await
     .map_err(|e| {

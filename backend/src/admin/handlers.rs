@@ -317,7 +317,7 @@ pub async fn create_country_handler(
 ) -> Result<Json<CountryResponse>, (StatusCode, String)> {
     let db = &state.db;
     let country = sqlx::query_as::<_, CountryResponse>(
-        "INSERT INTO countries (name, code) VALUES ($1, $2) RETURNING id, name, code"
+        "INSERT INTO countries (name, code, slug) VALUES ($1, $2, slugify($1)) RETURNING id, name, code"
     )
     .bind(&req.name)
     .bind(&req.code)
@@ -354,7 +354,7 @@ pub async fn update_country_handler(
     let code = req.code.unwrap_or(existing.code);
 
     let row = sqlx::query_as::<_, CountryResponse>(
-        "UPDATE countries SET name = $1, code = $2 WHERE id = $3 RETURNING id, name, code"
+        "UPDATE countries SET name = $1, code = $2, slug = slugify($1) WHERE id = $3 RETURNING id, name, code"
     )
     .bind(&name)
     .bind(&code)
@@ -416,7 +416,7 @@ pub async fn create_subregion_handler(
 ) -> Result<Json<SubregionResponse>, (StatusCode, String)> {
     let db = &state.db;
     let subregion = sqlx::query_as::<_, SubregionResponse>(
-        "INSERT INTO subregions (name, country_id) VALUES ($1, $2) RETURNING id, name, country_id"
+        "INSERT INTO subregions (name, country_id, slug) VALUES ($1, $2, slugify($1)) RETURNING id, name, country_id"
     )
     .bind(&req.name)
     .bind(req.country_id)
@@ -452,7 +452,7 @@ pub async fn update_subregion_handler(
     let name = req.name.unwrap_or(existing.name);
 
     let row = sqlx::query_as::<_, SubregionResponse>(
-        "UPDATE subregions SET name = $1 WHERE id = $2 RETURNING id, name, country_id"
+        "UPDATE subregions SET name = $1, slug = slugify($1) WHERE id = $2 RETURNING id, name, country_id"
     )
     .bind(&name)
     .bind(subregion_id)
@@ -531,6 +531,7 @@ pub struct AdminReport {
     pub spot_name: String,
     pub observed_at: DateTime<Utc>,
     pub status: String,
+    pub comment: Option<String>,
     pub reported_at: DateTime<Utc>,
     pub calc_min_saturation: Option<f32>,
     pub calc_max_saturation: Option<f32>,
@@ -544,7 +545,7 @@ pub async fn list_reports_handler(
         SELECT
             cr.id, cr.spot_id,
             s.name AS spot_name,
-            cr.observed_at, cr.status, cr.reported_at,
+            cr.observed_at, cr.status, cr.comment, cr.reported_at,
             cc.min_saturation AS calc_min_saturation,
             cc.max_saturation AS calc_max_saturation
         FROM condition_reports cr

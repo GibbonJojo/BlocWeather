@@ -37,6 +37,7 @@
 	let showModal = false;
 	let selectedStatus = '';
 	let observedTime = '';
+	let comment = '';
 	let submitting = false;
 	let submitSuccess = false;
 	let submitError = '';
@@ -68,6 +69,7 @@
 		const pad = (n: number) => String(n).padStart(2, '0');
 		observedTime = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:00`;
 		selectedStatus = '';
+		comment = '';
 		submitSuccess = false;
 		submitError = '';
 		showModal = true;
@@ -85,7 +87,7 @@
 		submitError = '';
 		try {
 			const observedAt = new Date(observedTime).toISOString();
-			await api.submitReport(data.spot.id, observedAt, selectedStatus as ConditionStatus);
+			await api.submitReport(data.spot.id, observedAt, selectedStatus as ConditionStatus, comment);
 			submitSuccess = true;
 			setTimeout(() => { showModal = false; submitSuccess = false; }, 1800);
 		} catch {
@@ -226,6 +228,21 @@
 							</button>
 						{/each}
 					</div>
+				</div>
+
+				<!-- Comment -->
+				<div class="space-y-1.5">
+					<label for="report-comment" class="block text-sm font-medium text-gray-700">
+						Comment <span class="text-gray-400 font-normal">(optional)</span>
+					</label>
+					<textarea
+						id="report-comment"
+						rows="2"
+						maxlength="500"
+						placeholder="e.g. north face still damp"
+						bind:value={comment}
+						class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+					></textarea>
 				</div>
 
 				{#if submitError}

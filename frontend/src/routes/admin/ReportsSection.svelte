@@ -132,7 +132,8 @@
 									Reported{arrow('status')}
 								</button>
 							</th>
-							<th class="pb-2 pr-4 font-medium">Algo min–max sat.</th>
+							<th class="pb-2 pr-4 font-medium">Comment</th>
+						<th class="pb-2 pr-4 font-medium">Algo min–max sat.</th>
 							<th class="pb-2 pr-4 font-medium">
 								<button class="hover:text-gray-900 cursor-pointer" on:click={() => toggleSort('match')}>
 									Match{arrow('match')}
@@ -153,6 +154,9 @@
 								<td class="py-2 pr-4 font-medium text-gray-900">{r.spot_name}</td>
 								<td class="py-2 pr-4 text-gray-600">{fmtDate(r.observed_at)}</td>
 								<td class="py-2 pr-4 text-gray-700">{STATUS_LABEL[r.status] ?? r.status}</td>
+								<td class="py-2 pr-4 text-gray-500 text-xs max-w-[12rem] truncate" title={r.comment ?? ''}>
+									{r.comment ?? ''}
+								</td>
 								<td class="py-2 pr-4 text-gray-500 font-mono text-xs">
 									{satPct(r.calc_min_saturation)} – {satPct(r.calc_max_saturation)}
 								</td>
