@@ -4,6 +4,7 @@
 	import type { ConditionStatus } from '$lib/api/client';
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
+	import { onMount } from 'svelte';
 
 	export let data: PageData;
 
@@ -32,6 +33,13 @@
 		copied2 = true;
 		setTimeout(() => { copied2 = false; }, 2000);
 	}
+
+	// ── Chart tabs ────────────────────────────────────────────────────────────
+	let activeTab: 'current' | 'forecast' = 'current';
+
+	const forecast14InitialActive = { rockTemp: false, sunshine: false, wind: false };
+	let forecast14Compact = false;
+	onMount(() => { forecast14Compact = window.innerWidth >= 640; });
 
 	// ── Report modal ──────────────────────────────────────────────────────────
 	let showModal = false;
@@ -130,17 +138,39 @@
 		</button>
 	</div>
 
-	<!-- Combined weather + saturation chart -->
-	{#if data.weather.length > 0}
-		<div class="bg-white rounded-lg shadow-sm p-4">
-			<WeatherChart weather={data.weather} conditions={data.conditions} />
+	<!-- Chart card with tabs -->
+	<div class="bg-white rounded-lg shadow-sm">
+		<!-- Tab bar -->
+		<div class="flex border-b border-gray-200 px-4 pt-3 gap-4">
+			<button
+				on:click={() => activeTab = 'current'}
+				class="pb-2 text-sm font-medium border-b-2 transition-colors cursor-pointer {activeTab === 'current' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-600'}"
+			>Now / 5-day</button>
+			<button
+				on:click={() => activeTab = 'forecast'}
+				class="pb-2 text-sm font-medium border-b-2 transition-colors cursor-pointer {activeTab === 'forecast' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-600'}"
+			>14-day</button>
 		</div>
-	{:else}
-		<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center">
-			<p class="text-yellow-800 font-medium">No weather data available yet</p>
-			<p class="text-yellow-600 text-sm mt-1">Data is being fetched. Check back in a few minutes.</p>
+
+		<div class="p-4">
+			{#if activeTab === 'current'}
+				{#if data.weather.length > 0}
+					<WeatherChart weather={data.weather} conditions={data.conditions} />
+				{:else}
+					<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center">
+						<p class="text-yellow-800 font-medium">No weather data available yet</p>
+						<p class="text-yellow-600 text-sm mt-1">Data is being fetched. Check back in a few minutes.</p>
+					</div>
+				{/if}
+			{:else}
+				<!-- 14-day disclaimer -->
+				<p class="text-xs text-gray-400 mb-4">
+					Forecast accuracy drops sharply after 3 days. Use this as a rough trend indicator only — not for planning a trip.
+				</p>
+				<WeatherChart weather={data.forecast14Weather} conditions={data.forecast14Conditions} initialActive={forecast14InitialActive} compact={forecast14Compact} />
+			{/if}
 		</div>
-	{/if}
+	</div>
 
 	<!-- Embed section -->
 	<div class="border border-gray-200 rounded-lg overflow-hidden">

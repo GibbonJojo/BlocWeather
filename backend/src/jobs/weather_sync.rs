@@ -84,8 +84,8 @@ async fn run_weather_sync(db: &PgPool, api_url: &str) -> Result<(), anyhow::Erro
             .map(|s| (s.latitude, s.longitude))
             .collect();
 
-        // Fetch 14 days past for accurate cumulative saturation, 5 days forecast for display
-        match fetcher.fetch_weather_batch(coordinates, 14, 5).await {
+        // Fetch 14 days past for accurate cumulative saturation, 14 days forecast for display
+        match fetcher.fetch_weather_batch(coordinates, 14, 14).await {
             Ok(weather_data) => {
                 for (spot, spot_weather) in batch.iter().zip(weather_data.iter()) {
                     match process_spot_weather(db, spot, spot_weather).await {

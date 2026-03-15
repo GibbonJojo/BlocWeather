@@ -9,6 +9,7 @@
 	export let weather: WeatherData[];
 	export let conditions: ClimbingCondition[];
 	export let initialActive: Partial<Record<string, boolean>> | undefined = undefined;
+	export let compact = false;
 
 	// ── Toggle state ──────────────────────────────────────────────────────────
 	type Toggle = 'temperature' | 'humidity' | 'precipitation' | 'saturation' | 'rockTemp' | 'sunshine' | 'wind';
@@ -59,8 +60,9 @@
 
 	// ── Chart refs ────────────────────────────────────────────────────────────
 	let canvas: HTMLCanvasElement;
+	let yAxisCanvas: HTMLCanvasElement;
+	let scrollContainer: HTMLDivElement;
 	let chartInstance: any = null;
-
 	// ── Toggle handler ────────────────────────────────────────────────────────
 	function toggle(key: string) {
 		active[key] = !active[key];
@@ -188,7 +190,7 @@
 				ctx.fillStyle = 'rgba(30, 30, 30, 0.75)';
 				ctx.font = 'bold 11px system-ui, sans-serif';
 				ctx.textAlign = 'center';
-				ctx.fillText('now', xPos, top - 6);
+				ctx.fillText('now', xPos, top - 1);
 				ctx.restore();
 			}
 		};
@@ -400,16 +402,49 @@
 					},
 				},
 			},
-			plugins: [midnightLinesPlugin, nowLinePlugin],
+			plugins: [midnightLinesPlugin, nowLinePlugin, {
+			id: 'yAxisOverlay',
+			afterDraw(chart: any) {
+				if (!yAxisCanvas || compact) return;
+				const dpr = window.devicePixelRatio || 1;
+				const yW = Math.ceil(chart.chartArea.left);
+				const h = chart.canvas.offsetHeight;
+				yAxisCanvas.width = yW * dpr;
+				yAxisCanvas.height = h * dpr;
+				yAxisCanvas.style.width = yW + 'px';
+				yAxisCanvas.style.height = h + 'px';
+				const yCtx = yAxisCanvas.getContext('2d');
+				if (!yCtx) return;
+				yCtx.fillStyle = '#ffffff';
+				yCtx.fillRect(0, 0, yW * dpr, h * dpr);
+				yCtx.drawImage(chart.canvas, 0, 0, yW * dpr, h * dpr, 0, 0, yW * dpr, h * dpr);
+			},
+		}],
 		});
+
+	// Scroll the chart so "now" is visible near the left edge (only when content overflows)
+	requestAnimationFrame(() => {
+		if (!scrollContainer) return;
+		const maxScroll = scrollContainer.scrollWidth - scrollContainer.clientWidth;
+		if (maxScroll <= 0) return;
+		const xPx = chartInstance?.scales?.x?.getPixelForValue(nowIndex);
+		if (xPx != null) {
+			scrollContainer.scrollLeft = Math.min(Math.max(0, xPx - scrollContainer.clientWidth * 0.4), maxScroll);
+		}
+	});
 	});
 
 	onDestroy(() => {
 		chartInstance?.destroy();
 	});
 
-	// Min chart pixel width so mobile can horizontally scroll
-	$: minChartWidth = Math.max(weather.length * 5, 600);
+	// Min chart pixel width:
+	// - compact: no min-width (fills container)
+	// - mobile (<640px): fixed wide enough to scroll through all data
+	// - desktop: no min-width (chart fills container, no scroll)
+	let isMobile = false;
+	onMount(() => { isMobile = window.innerWidth < 640; });
+	$: minChartWidth = compact || !isMobile ? 0 : Math.max(weather.length * 5, 600);
 
 	let showRockWetnessInfo = false;
 </script>
@@ -447,9 +482,18 @@
 	</div>
 {/if}
 
-<!-- Scrollable chart wrapper -->
-<div class="overflow-x-auto rounded">
-	<div style="min-width: {minChartWidth}px; height: 320px;">
-		<canvas bind:this={canvas} style="width: 100%; height: 100%;"></canvas>
+<!-- Scrollable chart wrapper — relative wrapper lets the y-axis overlay sit outside the scroll area -->
+<div class="relative">
+	{#if !compact}
+	<canvas
+		bind:this={yAxisCanvas}
+		width="0" height="0"
+		style="position: absolute; top: 0; left: 0; pointer-events: none; z-index: 10;"
+	></canvas>
+	{/if}
+	<div bind:this={scrollContainer} class="overflow-x-auto rounded">
+		<div style="{minChartWidth ? `min-width: ${minChartWidth}px;` : ''} height: {compact ? 220 : 320}px;">
+			<canvas bind:this={canvas} style="width: 100%; height: 100%;"></canvas>
+		</div>
 	</div>
 </div>

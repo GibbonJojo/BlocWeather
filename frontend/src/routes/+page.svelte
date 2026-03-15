@@ -15,7 +15,8 @@
 	// ── Map timestamp picker ───────────────────────────────────────────────
 	const _pad = (n: number) => String(n).padStart(2, '0');
 
-	const SLIDER_RANGE = 5 * 24; // ±5 days in hours = 240 steps
+	const SLIDER_MIN = -2 * 24;  // 2 days in the past
+	const SLIDER_MAX =  9 * 24;  // 9 days in the future
 	const _epoch = new Date();
 	_epoch.setMinutes(0, 0, 0);
 
@@ -40,10 +41,9 @@
 	$: sliderIsNow = sliderValue === 0;
 
 	// Compute tick positions for midnight boundaries within the slider range
-	// Each tick = offset in hours from -SLIDER_RANGE to +SLIDER_RANGE
 	const dayTicks: { offset: number; label: string }[] = (() => {
 		const ticks = [];
-		for (let h = -SLIDER_RANGE; h <= SLIDER_RANGE; h++) {
+		for (let h = SLIDER_MIN; h <= SLIDER_MAX; h++) {
 			const d = new Date(_epoch.getTime() + h * 36e5);
 			if (d.getHours() === 0) {
 				ticks.push({
@@ -172,8 +172,8 @@
 				<div class="relative">
 					<input
 						type="range"
-						min={-SLIDER_RANGE}
-						max={SLIDER_RANGE}
+						min={SLIDER_MIN}
+						max={SLIDER_MAX}
 						step="1"
 						bind:value={sliderValue}
 						class="w-full accent-blue-600 cursor-pointer"
@@ -181,7 +181,7 @@
 					<!-- Day boundary ticks -->
 					<div class="relative w-full h-4">
 						{#each dayTicks as tick}
-							{@const pct = ((tick.offset + SLIDER_RANGE) / (SLIDER_RANGE * 2)) * 100}
+							{@const pct = ((tick.offset - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100}
 							<div
 								class="absolute flex flex-col items-center"
 								style="left: {pct}%; transform: translateX(-50%)"
