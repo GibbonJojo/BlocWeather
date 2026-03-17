@@ -226,7 +226,7 @@ impl WeatherFetcher {
                     }
                 });
 
-                let solar_radiation = hourly.shortwave_radiation.get(i).and_then(|v| *v);
+                let solar_radiation = hourly.shortwave_radiation.get(i).and_then(|v| *v).map(|v: f32| v.max(0.0));
                 let sunshine_duration = hourly.sunshine_duration.get(i).and_then(|v| *v);
                 let pressure = hourly.surface_pressure.get(i).and_then(|v| *v);
 
